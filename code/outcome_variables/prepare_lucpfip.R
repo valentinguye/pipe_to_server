@@ -53,13 +53,13 @@
 
 
 ### PACKAGES ###
+if (!require(renv)) install.packages("renv")
+renv::init()
+renv::restore()
 
-# sf need to be installed from source for lwgeom te be installed from source. 
-if (!require(sf)) install.packages("sf", source = TRUE)
-#"plyr", 
-neededPackages = c("dplyr", "raster", "foreign", "sp", "lwgeom", "rnaturalearth", "data.table",
-                   "rgdal", "readstata13",
-                   "rlist", "velox", "parallel", "foreach", "iterators", "doParallel", "readxl", "here")
+neededPackages = c("data.table", "dplyr", "readstata13", 
+                   "raster", "rgdal", "sp", "sf","gfcanalysis",
+                   "doParallel", "foreach",  "parallel")
 allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 
 # Install packages (if not already installed) 
@@ -71,7 +71,6 @@ if(!all(allPackages)) {
 
 # Load all defined packages
 lapply(neededPackages, library, character.only = TRUE)
-library(sf)
 
 # install other packages not from source.
 if (!require(devtools)) install.packages("devtools")
@@ -440,7 +439,7 @@ prepare_pixel_lucpfip <- function(island){
   pf <- raster(file.path(paste0("temp_data/processed_lu/margono_primary_forest_",island,"_aligned.tif")))
   
   # stack is necessary for clusterR
-  rs <- stack(loss, ioppm2015, pf)
+  rs <- raster::stack(loss, ioppm2015, pf)
   
   # note that using calc below is equivalent to using overlay but more appropriate to the input being a stack, 
   # which is necessary to pass several raster layers to the first argument of clusterR
