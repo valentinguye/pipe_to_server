@@ -30,12 +30,10 @@
 
 
 #### PACKAGES #### 
-#install.packages("sf", source = TRUE)
-library(sf)
 
-neededPackages = c("data.table","plyr", "dplyr", "tidyr", "readxl", "writexl", "foreign", "data.table", "readstata13", "here",
-                   "rgdal", "sjmisc", "stringr","Hmisc", "doBy", 
-                   "rlist", "parallel", "foreach", "iterators", "doParallel" )
+neededPackages = c("data.table", "dplyr", "plyr", "sjmisc", "stringr","Hmisc",
+                   "readxl", "writexl", "foreign", "readstata13", 
+                   "sf", "rgdal")
 
 allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 
@@ -47,12 +45,6 @@ if(!all(allPackages)) {
 }
 # Load all defined packages
 lapply(neededPackages, library, character.only = TRUE)
-
-# no CRAN packages
-if (!require(devtools)) install.packages("devtools")
-# package tictoc
-devtools::install_github("jabiru/tictoc")
-library(tictoc)
 
 
 #### PREPARE DATA ####
@@ -104,7 +96,7 @@ for(i in 1:nrow(match)){
   #specified as such (with switch = T), the function checks whether x is in any of the patterns (wierd phrasing but that's the way to go with this function)
   kab_filter <- str_contains(x = match$district_name[i], pattern = match$y[[i]]$address, ignore.case = TRUE, switch = TRUE) 
   # keep only the matches that are in the same district
-  match$y[[i]] <- filter(match$y[[i]], kab_filter)
+  match$y[[i]] <- dplyr::filter(match$y[[i]], kab_filter)
   # report the number of different mills that matched
   match$n_match[i] <- length(unique(match$y[[i]]$company_name)) 
 }

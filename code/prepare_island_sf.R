@@ -4,7 +4,7 @@
 ### PACKAGES ###
 
 # sf need to be installed from source for lwgeom te be installed from source. 
-neededPackages = c("dplyr", "tidyr", "sf")
+neededPackages = c("dplyr", "sf")
 
 allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 

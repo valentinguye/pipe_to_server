@@ -34,6 +34,21 @@ Stata:
 
 
 R: 
-This project's data processing working directory is home for a renv.lock file and a renv folder. 
-The first thing any R script from this project does is to install the renv package in user's default library if it cannot be loaded, 
-and install and load the packages used in this project, listed in the renv.lock file and hosted in ~/LUCFP/data_processing/renv/library. 
+At start up, the project .Rprofile calls ~renv/activate.R which, in particular, installs, loads, or updates, if necessary, the renv package. 
+Then, the first thing any of this project's R scripts does is renv:restore() which installs the project required 
+library (packages in specific versions) if it is not up to date in ~/renv/library/ (basically at first run on a new machine). 
+These packages and their respective versions are registered in the renv.lock file provided with the project (the project local library is not). 
+
+The packages required in this project are disclosed to renv::dependencies(), used by renv::snapshot() to update the renv.lock. Therefore:
+If the user needs to load new packages, she should add library(package) in the disclose_dependencies.R script, save it, and run the last 
+line (renv::snapshot() command). See ?renv::dependencies to know more. 
+It the user needs to install new packages, she might have error messages of the kind 'package "..." is not available.' 
+A work around is to remove all renv architecture (renv/ and renv.lock), install the new package (in default user lib), 
+write a line library(new.package) in disclose_dependencies.R and run renv::init(). The new renv/library should contain the new package. 
+
+
+
+
+
+
+

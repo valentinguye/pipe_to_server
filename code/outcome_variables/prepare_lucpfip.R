@@ -53,46 +53,18 @@
 
 
 ### PACKAGES ###
-if (!require(renv)) install.packages("renv")
-renv::init()
+
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
 renv::restore()
 
+# These are the packages needed in this particular script. 
 neededPackages = c("data.table", "dplyr", "readstata13", 
                    "raster", "rgdal", "sp", "sf","gfcanalysis",
-                   "doParallel", "foreach",  "parallel")
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
+                   "doParallel", "foreach", "parallel")
 
-# Install packages (if not already installed) 
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-
-# Load all defined packages
+# load them 
 lapply(neededPackages, library, character.only = TRUE)
 
-# install other packages not from source.
-if (!require(devtools)) install.packages("devtools")
-library(devtools)
-
-# package tictoc
-install_github("jabiru/tictoc")
-library(tictoc)
-
-#install.packages("sf", source = TRUE)
-#if (!require(devtools)) install.packages("devtools")
-#devtools::install_github("r-spatial/lwgeom")
-#library(lwgeom)
-
-#INSTALL GFC ANALYSIS
-# Install the snow package used to speed spatial analyses
-if (!require(snow)) install.packages("snow")
-library(snow)
-
-# Install Alex's gfcanalysis package
-if (!require(gfcanalysis)) install.packages('gfcanalysis')
-library(gfcanalysis)
 
 
 ### NEW FOLDERS USED IN THIS SCRIPT 

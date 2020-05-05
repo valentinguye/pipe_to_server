@@ -19,7 +19,7 @@ dir.create("temp_data/processed_plantation_maps")
 rm(list = ls())
 # List all packages needed for session
 neededPackages = c("dplyr", "raster", "sf", "foreign", "sp", "data.table",
-                   "rgdal", "plyr")
+                   "rgdal")
 allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 
 # Install packages (if not already installed) 

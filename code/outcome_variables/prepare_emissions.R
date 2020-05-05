@@ -9,12 +9,11 @@
 
 ### PACKAGES ###
 
-# sf need to be installed from source for lwgeom te be installed from source. 
-if (!require(sf)) install.packages("sf", source = TRUE)
-#"plyr", 
-neededPackages = c("dplyr", "raster", "foreign", "sp", "lwgeom", "rnaturalearth", "data.table",
-                   "rgdal", "readstata13",
-                   "rlist", "velox", "parallel", "foreach", "iterators", "doParallel", "readxl", "here")
+
+neededPackages = c("dplyr", "readstata13", 
+                   "raster", "rgdal", "sp", "sf","gfcanalysis",
+                   "doParallel", "foreach", "parallel")
+
 allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 
 # Install packages (if not already installed) 
@@ -24,27 +23,6 @@ if(!all(allPackages)) {
   lapply(needed, install.packages)
 }
 
-# Load all defined packages
-lapply(neededPackages, library, character.only = TRUE)
-library(sf)
-
-# install other packages not from source.
-if (!require(devtools)) install.packages("devtools")
-library(devtools)
-
-# package tictoc
-install_github("jabiru/tictoc")
-library(tictoc)
-
-#install.packages("sf", source = TRUE)
-#if (!require(devtools)) install.packages("devtools")
-#devtools::install_github("r-spatial/lwgeom")
-#library(lwgeom)
-
-#INSTALL GFC ANALYSIS
-# Install the snow package used to speed spatial analyses
-if (!require(snow)) install.packages("snow")
-library(snow)
 
 
 ### NEW FOLDERS USED IN THIS SCRIPT 

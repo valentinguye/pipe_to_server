@@ -8,12 +8,9 @@
 
 
 # PACKAGES
-#install.packages("sf", source = TRUE)
-library(sf)
-
-neededPackages = c("tidyverse","data.table", "readxl","foreign", "data.table", "readstata13",
-                   "rgdal", "raster", "velox","sp", "lwgeom", "rnaturalearth", 
-                   "rlist", "parallel", "foreach", "iterators", "doParallel" )
+neededPackages = c("dplyr", "readxl","foreign", "readstata13",
+                   "sf", "rgdal", 
+                   "parallel", "foreach", "doParallel")
 
 allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 
@@ -25,12 +22,6 @@ if(!all(allPackages)) {
 }
 # Load all defined packages
 lapply(neededPackages, library, character.only = TRUE)
-
-# no CRAN packages
-if (!require(devtools)) install.packages("devtools")
-# package tictoc
-devtools::install_github("jabiru/tictoc")
-library(tictoc)
 
 
 ### Create a new temp_data folder used for outputs of this script

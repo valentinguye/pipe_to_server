@@ -20,11 +20,10 @@
 
 #### PACKAGES #### 
 #install.packages("sf", source = TRUE)
-library(sf)
 
-neededPackages = c("data.table","plyr", "dplyr", "tidyr", "readxl", "writexl", "foreign", "data.table", "readstata13", "here",
-                   "rgdal", "sjmisc", "stringr","Hmisc", "doBy", 
-                   "rlist", "parallel", "foreach", "iterators", "doParallel" )
+neededPackages = c("data.table","dplyr",
+                   "readxl",  "foreign", "readstata13",
+                   "sf", "rgdal", "sjmisc", "stringr","Hmisc")
 
 allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 
@@ -36,12 +35,6 @@ if(!all(allPackages)) {
 }
 # Load all defined packages
 lapply(neededPackages, library, character.only = TRUE)
-
-# no CRAN packages
-if (!require(devtools)) install.packages("devtools")
-# package tictoc
-devtools::install_github("jabiru/tictoc")
-library(tictoc)
 
 
 #### PREPARE DATA ####
@@ -62,7 +55,7 @@ oto <- merge(ibs, oto_cross, by = "firm_id")
 setorder(oto, firm_id, year)
 
 length(unique(oto[,"firm_id"]))  == nrow(oto_cross)
-oto_cross$firm_id[!is.element(oto_cross$firm_id, intersect(oto$firm_id, oto_cross$firm_id))]
+oto_cross$firm_id[!is.element(oto_cross$firm_id, base::intersect(oto$firm_id, oto_cross$firm_id))]
 # These five mills were oto, and were found to be the same mill has another one, with a lower firm_id 
 # (i.e. established earlier) therefore they are not in IBS_UML_panel_final.dta anymore and not in oto. 
 
@@ -97,7 +90,7 @@ match$district_name <- str_replace(string = match$district_name, pattern = "Kab.
 # not elegant but enables that empty district_names are not matched with adresses in MD
 match$district_name[match$district_name == ""] <- "123456789xyz"
 
-tic()
+
 match$n_match <- NA
 for(i in 1:nrow(match)){
   #specified as such (with switch = T), the function checks whether x is in any of the patterns (wierd phrasing but that's the way to go with this function)
@@ -107,7 +100,7 @@ for(i in 1:nrow(match)){
   # report the number of different mills that matched
   match$n_match[i] <- length(unique(match$y[[i]]$company_name)) 
 }
-toc()
+
 
 # In oto, and hence in match, the mill_name and parent_co variables come from UML 
 # (through automatic spatial matching)
