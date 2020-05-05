@@ -6,21 +6,17 @@
 #### IN ANY CASE IT SHOULD BE (~/LUCFP/data_processing) 
 
 
+### PACKAGES
 
-# PACKAGES
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+renv::restore()
+
+# These are the packages needed in this particular script. 
 neededPackages = c("dplyr", "readxl","foreign", "readstata13",
                    "sf", "rgdal", 
                    "parallel", "foreach", "doParallel")
 
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
-
-# Install packages (if not already installed) 
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-# Load all defined packages
+# Load them
 lapply(neededPackages, library, character.only = TRUE)
 
 
@@ -144,9 +140,9 @@ parallel_mill_concentration <- function(ncores){
 }# closes parallel_w_averages
 
 
-tic()
+
 parallel_mill_concentration(detectCores() - 1)
-toc()
+
 
 #### Merge results together #### 
 uml_panel_cr_paths <- list.files(path = file.path("temp_data/temp_parallel_outputs"),

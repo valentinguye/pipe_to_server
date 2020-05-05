@@ -19,21 +19,15 @@
 
 
 #### PACKAGES #### 
-#install.packages("sf", source = TRUE)
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+renv::restore()
 
-neededPackages = c("data.table","dplyr",
+# These are the packages needed in this particular script. 
+neededPackages = c("data.table","dplyr","sjmisc", "stringr","Hmisc",
                    "readxl",  "foreign", "readstata13",
-                   "sf", "rgdal", "sjmisc", "stringr","Hmisc")
+                   "sf", "rgdal")
 
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
-
-# Install packages (if not already installed) 
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-# Load all defined packages
+# Load them
 lapply(neededPackages, library, character.only = TRUE)
 
 

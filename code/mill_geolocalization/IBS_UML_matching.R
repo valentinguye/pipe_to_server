@@ -19,22 +19,17 @@
 #### OR CALLED FROM LUCFP PROJECT master.do FILE.
 #### IN ANY CASE IT SHOULD BE (~/LUCFP/data_processing) 
                                                          
-### LOAD OR INSTALL NECESSARY PACKAGES 
-# List all packages needed for session"foreign",
+### PACKAGES 
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+renv::restore()
+
+# These are the packages needed in this particular script. 
 neededPackages = c("dplyr", "readxl", "foreign", "readstata13",
                    "sf", "rgdal") 
 
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
-
-# Install packages (if not already installed) 
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-
-# Load all defined packages
+# Load them
 lapply(neededPackages, library, character.only = TRUE)
+
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
 

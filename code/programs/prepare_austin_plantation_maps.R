@@ -12,27 +12,23 @@
 #### OR CALLED FROM LUCFP PROJECT master.do FILE.
 #### IN ANY CASE IT SHOULD BE (~/LUCFP/data_processing) 
 
-dir.create("temp_data/processed_plantation_maps")
 
-# LOAD OR INSTALL NECESSARY PACKAGES 
+### PACKAGES 
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+renv::restore()
 
-rm(list = ls())
-# List all packages needed for session
+# These are the packages needed in this particular script. 
 neededPackages = c("dplyr", "raster", "sf", "foreign", "sp", "data.table",
                    "rgdal")
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
 
-# Install packages (if not already installed) 
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-
-# Load all defined packages
+# Load them
 lapply(neededPackages, library, character.only = TRUE)
 
 #######################################################################
+
+
+dir.create("temp_data/processed_plantation_maps")
+
 
 ######################################################################
 ######################################################################

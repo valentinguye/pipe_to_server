@@ -29,21 +29,17 @@
 #### IN ANY CASE IT SHOULD BE (~/LUCFP/data_processing) 
 
 
-#### PACKAGES #### 
+### PACKAGES ###
 
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+renv::restore()
+
+# These are the packages needed in this particular script. 
 neededPackages = c("data.table", "dplyr", "plyr", "sjmisc", "stringr","Hmisc",
                    "readxl", "writexl", "foreign", "readstata13", 
                    "sf", "rgdal")
 
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
-
-# Install packages (if not already installed) 
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-# Load all defined packages
+# Load them
 lapply(neededPackages, library, character.only = TRUE)
 
 
@@ -90,7 +86,7 @@ match$district_name <- str_replace(string = match$district_name, pattern = "Kab.
 # not elegant but enables that empty district_names are not matched with adresses in MD
 match$district_name[match$district_name == ""] <- "123456789xyz"
 
-tic()
+
 match$n_match <- NA
 for(i in 1:nrow(match)){
   #specified as such (with switch = T), the function checks whether x is in any of the patterns (wierd phrasing but that's the way to go with this function)
@@ -100,9 +96,9 @@ for(i in 1:nrow(match)){
   # report the number of different mills that matched
   match$n_match[i] <- length(unique(match$y[[i]]$company_name)) 
 }
-toc()
 
-# tic()
+
+# 
 # match$n_match2 <- NA
 # f <- function(i){
 #   kab_filter <- str_contains(x = match$district_name[i], pattern = match$y[[i]]$address, ignore.case = TRUE, switch = TRUE) 
@@ -113,7 +109,7 @@ toc()
 #   return(match$n_match2[i])
 # }
 # match$n_match2 <- sapply(1:nrow(match), f)
-# toc()
+# 
 # 
 # table(match$n_match2, match$any_cpo_output)
 

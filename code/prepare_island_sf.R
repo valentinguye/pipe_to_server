@@ -2,20 +2,13 @@
 
 
 ### PACKAGES ###
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+renv::restore()
 
-# sf need to be installed from source for lwgeom te be installed from source. 
+# These are the packages needed in this particular script. 
 neededPackages = c("dplyr", "sf")
 
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"]) 
-
-# Install packages (if not already installed) 
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-
-# Load all defined packages
+# Load them
 lapply(neededPackages, library, character.only = TRUE)
 
 
