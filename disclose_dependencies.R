@@ -13,14 +13,16 @@ library(readstata13)
 library(foreign)
 library(readxl)
 library(writexl)
-library(raster)
 library(rgdal)
+library(raster)
 library(sp)
 library(sf)
 library(gfcanalysis)
 library(doParallel)
 library(foreach)
 library(parallel)
+
+update.packages("sf")
 
 # RUN if a new line 'library(new.package)' has been added 
 renv::snapshot()
