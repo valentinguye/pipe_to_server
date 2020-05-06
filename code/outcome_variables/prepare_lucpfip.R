@@ -53,14 +53,13 @@
 
 
 ### PACKAGES ###
-
-# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
-renv::restore()
-
 # These are the packages needed in this particular script. 
 neededPackages = c("data.table", "dplyr", "readstata13", 
                    "raster", "rgdal", "sp", "sf","gfcanalysis",
                    "doParallel", "foreach", "parallel")
+
+# Install all them in their specific versions 
+renv::restore(neededPackages)
 
 # load them 
 lapply(neededPackages, library, character.only = TRUE)

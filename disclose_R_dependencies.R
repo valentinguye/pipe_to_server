@@ -7,30 +7,32 @@
 
 ########
 
-# NOT RUN 
-library(data.table)
-library(dplyr)
-library(plyr)
-library(Hmisc)
-library(sjmisc)
-library(stringr)
-library(readstata13)
-library(foreign)
-library(readxl)
-library(writexl)
-library(rgdal)
-library(raster)
-library(sp)
-library(sf)
-library(gfcanalysis)
-library(doParallel)
-library(foreach)
-library(parallel)
+# The following code chunk's purpose is uniquely to disclose the packages used in the project.
+if(FALSE){
+  library(data.table)
+  library(dplyr)
+  library(plyr)
+  library(Hmisc)
+  library(sjmisc)
+  library(stringr)
+  library(readstata13)
+  library(foreign)
+  library(readxl)
+  library(writexl)
+  library(rgdal)
+  library(raster)
+  library(sp)
+  library(sf)
+  library(gfcanalysis)
+  library(doParallel)
+  library(foreach)
+  library(parallel)
+}
 
 
 # RUN if a line 'library(package)' has been added, or commented out:
-renv::snapshot()
-renv::restore()
+# renv::snapshot()
+# renv::restore()
 
 
 #################################################################################################

@@ -2,11 +2,12 @@
 
 
 ### PACKAGES ###
-# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
-renv::restore()
 
 # These are the packages needed in this particular script. 
 neededPackages = c("dplyr", "sf")
+
+# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+renv::restore(packages = neededPackages)
 
 # Load them
 lapply(neededPackages, library, character.only = TRUE)
