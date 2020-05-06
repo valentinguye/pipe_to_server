@@ -20,13 +20,6 @@
       "Repository": "CRAN",
       "Hash": "8f9ce74c6417d61f0782cbae5fd2b7b0"
     },
-    "DBI": {
-      "Package": "DBI",
-      "Version": "1.1.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "4744be45519d675af66c28478720fce5"
-    },
     "Formula": {
       "Package": "Formula",
       "Version": "1.2-3",
@@ -40,13 +33,6 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "6820b9b2f38a9b91eaae35c09eaace02"
-    },
-    "KernSmooth": {
-      "Package": "KernSmooth",
-      "Version": "2.23-15",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "081f417f4d6d55b7e8981433e8404a22"
     },
     "MASS": {
       "Package": "MASS",
@@ -146,20 +132,6 @@
       "Repository": "CRAN",
       "Hash": "4704086e092041b648573fe97235f7de"
     },
-    "class": {
-      "Package": "class",
-      "Version": "7.3-15",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "4fba6a022803b6c3f30fd023be3fa818"
-    },
-    "classInt": {
-      "Package": "classInt",
-      "Version": "0.4-3",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "17bdfa3c51df4a6c82484d13b11fb380"
-    },
     "cli": {
       "Package": "cli",
       "Version": "1.1.0",
@@ -236,13 +208,6 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "57a42ddf80f429764ff7987128c3fd0a"
-    },
-    "e1071": {
-      "Package": "e1071",
-      "Version": "1.7-3",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "728e85416ffc90743054c1ac04486d69"
     },
     "ellipsis": {
       "Package": "ellipsis",
@@ -655,13 +620,6 @@
       "Repository": "CRAN",
       "Hash": "a1c68369c629ea3188d0676e37069c65"
     },
-    "sf": {
-      "Package": "sf",
-      "Version": "0.9-3",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "f16ad0ac903df6727dbfb2e30eafcc26"
-    },
     "sjlabelled": {
       "Package": "sjlabelled",
       "Version": "1.1.1",
@@ -717,13 +675,6 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "971842fead8ee9e150495a0ede343a98"
-    },
-    "units": {
-      "Package": "units",
-      "Version": "0.6-6",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "687aa5dfc4ec01ad4da86862a7e6a05b"
     },
     "utf8": {
       "Package": "utf8",
