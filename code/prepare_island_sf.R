@@ -51,4 +51,6 @@ for(Island in IslandS){
 island_sf <- island_sf[!duplicated(island_sf$island),]
 
 ## export 
+dir.create("temp_data/processed_indonesia_spatial/island_sf")
 st_write(island_sf, "temp_data/processed_indonesia_spatial/island_sf", driver = "ESRI Shapefile", delete_dsn = TRUE)
+
