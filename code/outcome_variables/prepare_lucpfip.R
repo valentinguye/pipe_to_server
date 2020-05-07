@@ -53,16 +53,36 @@
 
 
 ### PACKAGES ###
+# see this project's README for a better understanding of how packages are handled in this project. 
+
 # These are the packages needed in this particular script. 
 neededPackages = c("data.table", "dplyr", "readstata13", 
                    "raster", "rgdal", "sp", "sf","gfcanalysis",
                    "doParallel", "foreach", "parallel")
 
-# Install all them in their specific versions 
-renv::restore(neededPackages)
+# Install them in their project-specific versions
+renv::restore(packages = neededPackages)
 
-# load them 
+# Load them 
 lapply(neededPackages, library, character.only = TRUE)
+
+# /!\/!\ IF renv::restore(neededPackages) FAILS TO INSTALL SOME PACKAGES /!\/!\ 
+
+# For instance sf could cause trouble https://github.com/r-spatial/sf/issues/921 
+# or magick, as a dependency of raster and rgdal. 
+
+# FOLLOW THESE STEPS:
+# 1. Remove these package names from neededPackages above, and rerun renv::restore(packages = neededPackages)
+# 2. Write them in troublePackages below, uncomment, and run the following code chunk: 
+
+# # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
+# troublePackages <- c("")
+# # Attempt to load packages from user's default libraries. 
+# lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
+
+# 3. If the troubling packages could not be loaded ("there is no package called ‘’") 
+#   you should try to install them, preferably in their versions stated in the renv.lock file. 
+#   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
 
 

@@ -14,10 +14,10 @@ lapply(neededPackages, library, character.only = TRUE)
 
 ### /!\ IF renv::restore() FAILS TO INSTALL SOME PACKAGES FROM neededPackages /!\ ### 
 
-# 1. Remove these packages from neededPackages above, and rerun renv::restore(packages = neededPackages)
+# 1. Remove these package names from neededPackages above, and rerun renv::restore(packages = neededPackages)
 # 2. Write them in troublePackages below, uncomment, and run the following code chunk: 
   
-  # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
+  # # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
   # troublePackages <- c("")
   # # Attempt to load packages from user's default libraries. 
   # lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
