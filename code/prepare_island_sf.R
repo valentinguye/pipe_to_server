@@ -6,11 +6,25 @@
 # These are the packages needed in this particular script. 
 neededPackages = c("dplyr", "sf")
 
-# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
+# Install them in their project-specific versions
 renv::restore(packages = neededPackages)
 
 # Load them
 lapply(neededPackages, library, character.only = TRUE)
+
+### /!\ IF renv::restore() FAILS TO INSTALL SOME PACKAGES FROM neededPackages /!\ ### 
+
+# 1. Remove these packages from neededPackages above, and rerun renv::restore(packages = neededPackages)
+# 2. Write them in troublePackages below, uncomment, and run the following code chunk: 
+  
+  # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
+  # troublePackages <- c("")
+  # # Attempt to load packages from user's default libraries. 
+  # lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
+
+# 3. If the troubling packages could not be loaded ("there is no package called ‘’") 
+#   you should try to install them, preferably in their versions stated in the renv.lock file. 
+#   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 

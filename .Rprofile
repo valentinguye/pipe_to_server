@@ -1,5 +1,5 @@
-# Save the default user library path before renv is activated
-Sys.setenv(R_DEFAULT_LIB_BEFORE_RENV = .libPaths()[1])
+# Save the default user library paths before renv is activated
+default_libraries <- .libPaths()
 
 # Activate renv
 source("renv/activate.R")
