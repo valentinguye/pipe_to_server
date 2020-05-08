@@ -10,7 +10,7 @@
 
 # These packages and their respective versions are recorded in the renv.lock file provided with the project. 
 
-# renv/library is created the first time R is launched from this project, either 
+# renv/library is not provided with the project, but created the first time R is launched from this project, either 
 # from master.do, or within R_project_for_individual_runs.Rproj 
 # because the project .Rprofile calls renv/activate.R which, in particular, 
 # downloads, installs, and updates, if necessary, the renv package; and creates renv/library. 

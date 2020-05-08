@@ -88,12 +88,6 @@ lapply(neededPackages, library, character.only = TRUE)
 
 ### NEW FOLDERS USED IN THIS SCRIPT 
 
-# this is where GFC tiles are stored 
-dir.create("temp_data/GFC_tiles")
-
-# this is where will be stored temporary raster function outputs. 
-dir.create("temp_data/processed_lu")
-
 # annual layers will be stored in a subfolder just for the sake of tidyness in processed_lu
 dir.create("temp_data/processed_lu/annual_maps")
 
@@ -144,73 +138,31 @@ prepare_pixel_lucpfip <- function(island){
   ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
   #### Prepare loss layer from GFC data  ####
   
-    # Download, extract, threshold, project forest loss layer. 
-    
-    ### Download GFC data
-    
-    #define where all tiles are going to be stored
-    data_folder <- file.path("temp_data/GFC_tiles")
-
-    # Calculate tiles needed to cover the AOI
-    tiles <- calc_gfc_tiles(aoi_sp)
-    # length(tiles) 
-
-    # version of GFC used here.
-    gfc_version <- "GFC-2018-v1.6"
-    # //!\\ this script is not written flexibly to adjust for other versions of GFC. One should check every "18" entries in this script for instance. 
-
-    #download tiles - with all layers otherwise later extract_gfc does not work
-    download_tiles(tiles, 
-                   output_folder = data_folder, 
-                   images = c("treecover2000", "lossyear", "gain", "datamask"), 
-                   dataset = gfc_version)
-
-    rm(tiles)
-    
-    
-    ### extract GFC data 
-    
-    # (can only extract all layers with default stack=change)
-    # to better understand extract_gfc see https://rdrr.io/cran/gfcanalysis/src/R/extract_gfc.R
-    extract_gfc(aoi_sp, data_folder,
-                stack = "change",
-                to_UTM = FALSE,
-                dataset = gfc_version,
-                filename = file.path(paste0("temp_data/processed_lu/gfc_data_",island,".tif")),
-                overwrite = TRUE )
-
+    # Import gfc data prepare (Downloaded, extracted, thresholded with gfcanalysis package in prepare_gfc.R)
+    thed_gfc_data <- brick(file.path(paste0("temp_data/processed_lu/gfc_data_Indonesia_30th.tif"))) 
 
     
-    ### Threshold GFC data and select the loss layer
-    
-    # The forest loss layer is based on a forest definition. This requires to specify a 
-    # pixel-level canopy cover percentage as the threshold between forest and non-forest state in 2000.
-    # Here, this is 30%. 
-    # function threshold_gfc is already defined in package gfc_analysis
-    
-    gfc_data <- brick(file.path(paste0("temp_data/processed_lu/gfc_data_",island,".tif")))
-    
-    threshold_gfc(gfc_data,
-                  forest_threshold=30,
-                  filename= file.path(paste0("temp_data/processed_lu/gfc_data_",island,"_30th.tif")),
-                  overwrite = TRUE)
-    
-    rm(gfc_data)
-    
-    ## select the loss layer (15 ad 40 are arbitrary, the max value of loss layer is an integer corresponding 
+    ### Select the loss layer (15 ad 40 are arbitrary, the max value of loss layer is an integer corresponding 
     # to the latest year after 2000 when loss is observed. We need a GFC version with this year being at least 2015. 
     # and we do not want to select a layer with percentage and values up to 100. 
     
-    thed_gfc_data <- brick(file.path(paste0("temp_data/processed_lu/gfc_data_",island,"_30th.tif"))) 
-
     loss <- thed_gfc_data[[which(thed_gfc_data@data@max > 15 & thed_gfc_data@data@max < 40)]]
    
     rm(thed_gfc_data)
+    
+    ### Crop to extent of island 
+    crop(loss, aoi_sp, 
+         filename = file.path(paste0("temp_data/processed_lu/gfc_data_",island,"_30th.tif")),
+         datatype = "INT1U",
+         overwrite = TRUE)
+    
     
     ### Project loss layer
     
     # This is necessary because we will need to make computations on this map within mills' catchment *areas*.
     # If one does not project maps, then catchment areas all have different areas while being defined with a common buffer.
+    
+    loss <- raster(file.path(paste0("temp_data/processed_lu/gfc_data_",island,"_30th.tif")))
     
     beginCluster() # this uses by default detectCores() - 1 
     

@@ -594,17 +594,24 @@
       "Repository": "CRAN",
       "Hash": "c66b930d20bb6d858cd18e1cebcfae5c"
     },
+    "remotes": {
+      "Package": "remotes",
+      "Version": "2.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "824a9fab6c4b3f3afd78e9e285d9c365"
+    },
     "renv": {
       "Package": "renv",
-      "Version": "0.9.3-115",
+      "Version": "0.10.0-2",
       "Source": "GitHub",
       "RemoteType": "github",
       "RemoteHost": "api.github.com",
       "RemoteRepo": "renv",
       "RemoteUsername": "rstudio",
       "RemoteRef": "master",
-      "RemoteSha": "d4070d1bd32a36a66a681f875eb0cee2f3861afa",
-      "Hash": "126fc0c2a1386929d4470f1e77d79dab"
+      "RemoteSha": "114cca81b1dcdecd70e9bb97bbf6110e1d0a68ad",
+      "Hash": "cd2077ae972b28131085a3663f20508b"
     },
     "reshape2": {
       "Package": "reshape2",
