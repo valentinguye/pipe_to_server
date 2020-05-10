@@ -56,6 +56,8 @@ indonesian_extent <- st_as_sfc(st_bbox(provinces))
 
 aoi_sp <- as(indonesian_extent, "Spatial")
 
+rm(provinces, indonesian_extent)
+
 ### Download GFC data
 
 #define where all tiles are going to be stored
@@ -89,7 +91,7 @@ extract_gfc(aoi_sp, data_folder,
             filename = file.path(paste0("temp_data/processed_lu/gfc_data_Indonesia.tif")),
             overwrite = TRUE )
 
-
+rm(aoi_sp)
 
 ### Threshold GFC data 
 
