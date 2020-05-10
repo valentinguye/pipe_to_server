@@ -30,7 +30,7 @@
 neededPackages <- c("data.table", "dplyr", "plyr", "Hmisc", "sjmisc", "stringr",
                     "readstata13", "foreign", "readxl", "writexl",
                     "raster", "rgdal", "sp", "sf","gfcanalysis",
-                    "doParallel", "foreach", "parallel")
+                    "doParallel", "foreach", "parallel", "snow")
 
 # Note that from ?renv::restore 
 # "Any required recursive dependencies of the requested packages will be restored as well."
@@ -95,6 +95,7 @@ if(FALSE){
   library(doParallel)
   library(foreach)
   library(parallel)
+  library(snow)
 }
 
 
