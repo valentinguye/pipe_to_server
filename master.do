@@ -7,6 +7,13 @@
 global Rterm_path "C:\Program Files\R\R-3.6.1\bin\R.exe"
 /////!!!!!!\\\\\/////!!!!!!\\\\\/////!!!!!!\\\\\
 
+* Set permanent R options to be applied at each call of an R script from Stata. 
+* vanilla is necessary for the R script call to work, but it prevents R from reading its .Rprofile file at start up 
+* see https://stat.ethz.ch/R-manual/R-devel/library/base/html/Startup.html 
+* and https://stackoverflow.com/questions/12540138/how-can-i-make-my-r-session-vanilla
+global Rterm_options "--vanilla"
+
+
 ******* NOTHING IS USER SPECIFIC BELOW THIS LINE ********
 
 *** THE PROJECT WORKING DIRECTORY DOES NOT NEED TO BE MANUALLY SPECIFIED, AS IT IS HOME OF THE PRESENT master.do, i.e. ~/LUCFP/data_processing/    
@@ -21,16 +28,17 @@ cd "$LUCFP"
 * Subsequent directories are generated within scripts.  
 capture mkdir "temp_data"
 
+
 *** PACKAGES 
+** Stata Packages
 ssc install rsource, replace
-* set permanent R options to be applied at each call of an R script from Stata. 
-* vanilla is necessary for the R script call to work, but it prevents R from reading its .Rprofile file at start up 
-* see https://stat.ethz.ch/R-manual/R-devel/library/base/html/Startup.html 
-* and https://stackoverflow.com/questions/12540138/how-can-i-make-my-r-session-vanilla
-global Rterm_options "--vanilla"
 
 * Note on rsource: the working directory returned by getwd() at the start of R scripts called from rsource 
 * is the current working directory in Stata. 
+
+** R Packages
+rsource using "install_R_project_packages.R"
+* see README and/or comments in this script for more info
 
 
 /* 
@@ -206,59 +214,68 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 	*			temp_data/IBS_UML_panel_final.dta
 
 
+**** Prepare Indonesian island shapes
+		rsource using "code/prepare_island_sf.R"
+		* input 	input_data/indonesia_spatial/province_shapefiles/IDN_adm1.shp
+		*
+		* output 	temp_data/processed_indonesia_spatial/island_sf
 
 
-**** build outcome variables 
+**** Build outcome variables at the parcel level
+
+	*** prepare gfc data in a separate script to isolate use of gfcanalysis package. 
+		rsource using "code/outcome_variables/prepare_gfc.R"
+		* input: 	input_data/indonesia_spatial/province_shapefiles/IDN_adm1.shp
+		*			INTERNET CONNEXION
+		
+		* output: 	temp_data/processed_lu/gfc_data_Indonesia_30th.tif 
+		*			temp_data/processed_lu/gfc_data_Indonesia_60th.tif 
+		*			temp_data/processed_lu/gfc_data_Indonesia_90th.tif 
 
 	*** prepare annual maps of deforestation according to different definitions
 		rsource using "code/outcome_variables/prepare_lucpfip.R" 
 		* input:	temp_data/processed_indonesia_spatial/island_sf
-		*			GFC tiles downloaded on the internet from the script
 		* 			input_data/austin_plantation_maps/IIASA_indo_oilpalm_map/oilpalm_2015_WGS1984.tif
 		*			input_data/margono_primary_forest/timeseq_change00_12.tif
 		*			temp_data/processed_mill_geolocalization/IBS_UML_cs.dta
 
-
 		* output: 
-		*		  TEMPORARY OUTPUTS in temp_data/processed_lu
+		*		Raster outputs 
+		*			temp_data/processed_lu/annual_maps/lucpfip_ISLAND_TYPE_YEAR.tif for ISLAND = ("Sumatra, Kalimantan, Papua), TYPE = (intact, degraded, total) and YEAR = (2001-2018)
+		*			temp_data/processed_lu/annual_maps/parcel_lucpfip_ISLAND_PS_TYPE.tif for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, TYPE = (intact, degraded, total) and YEAR = (2001-2018)
+		
+		*		Dataframe outputs 
+		*			temp_data/processed_parcels/lucpfip_panel_ISLAND_PS_CR_TYPE.rds for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, CR = (10CR, 30CR, 50CR) TYPE = (intact, degraded, total) and YEAR = (2001-2018)
+		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR) : each one has rows from three islands and columns for three forest definitions.  
 
-		*		  /build/input/outcome_variables/annual_maps          Here are 54 .tif files: 2001-18 years for each three forest definition
-		*         /build/input/outcome_variables/annual_parcels 	  For each PS, there are 54 .tif files: 2001-18 years for each three forest definition
-		* 		  /build/input/outcome_variables/bricked_parcels   	  Years are bricked together so there is one .tif file for each forest definition. 
+	*** prepare emissions from LUCPFIP 
+		rsource using "code/outcome_variables/prepare_emissions.R"
 
-		*		MAIN OUTPUTS - each one has columns for 3 primary forest types (intact, degraded, total)
-		* 		temp_data/processed_parcels/lucpfip_panel_3km_10CR.rds 
-		* 		temp_data/processed_parcels/lucpfip_panel_3km_30CR.rds 
-		* 		temp_data/processed_parcels/lucpfip_panel_3km_50CR.rds
 
 
 
 **** build explicative variables at the parcel level
 
-		/* Distribute geolocalized IBS mill variables to square parcels with distance-weighted averages.  
-		 Parcels are grouped in dataframes according to their size (3x3km only currently - i.e. PS = 3000 (meters)) and 
-		 how many they are (what is the catchment radius - CR = 10000, 30000, 50000 (meters)).  */
-	
-	**	
-	wa_at_parcels.R
-		* input:  /build/input/outcome_variables	take a panel_parcels file for arbitrary forest definition (say 30%) for a given PS and CR
-		* 		  /build/output/IBS_UML_panel_final.dta
+	/* Distribute geolocalized IBS mill variables to square parcels with distance-weighted averages.  
+	 Parcels are grouped in dataframes according to their size (3x3km only currently - i.e. PS = 3000 (meters)) and 
+	 how many they are (what is the catchment radius - CR = 10000, 30000, 50000 (meters)).  */	
+	rsource using "code/explicative_variables/wa_at_parcels.R"
+		* input   	temp_data/IBS_UML_panel_final.dta
+		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 
-		* output:  /build/input/explanatory_variables/temp_cs_wa_explanatory/cs_wa_explanatory_   for each combination of year, PS and CR 	.rds
-		* output:  /build/input/explanatory_variables/wa_panel_parcels_   	 for each combination of PS and CR 	.rds
+		* output 	temp_data/processed_parcels/temp_cs_wa_explanatory/cs_wa_explanatory_PS_CR_YEAR.rds for PS = 3km, CR = (10CR, 30CR, 50CR) and YEAR = (1998-2015)
+		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+
 
 	** add variables of the number of UML mills that are reachable from each parcel in each year within 10, 30 and 50km. 
 	make_n_reachable_uml.R
-		* input:	/build/output/UML_valentin_imputed_est_year.dta
-		*			/build/input/explanatory_variables/wa_panel_parcels_   	 for each combination of PS and CR 	.rds
+		* input:	temp_data/processed_UML/UML_valentin_imputed_est_year.dta
+		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds  	 for PS = 3km, CR = (10CR, 30CR, 50CR)
 
-		*output: 	/build/input/explanatory_variables/panel_parcels_reachable_uml_ for each combination of PS and CR 	.rds
+		*output: 	temp_data/processed_parcels/wa_panel_parcels_reachable_uml_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 
 		* MERGE WITH OUTCOME VARIABLES !!!!!!!! 
 		* in a dedicated script. 
-		
 
-		
-* il reste à merger les RHS and LHS
 
 ///// analysis

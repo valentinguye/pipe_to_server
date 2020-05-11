@@ -4,7 +4,7 @@
 #   Input: - Indonesia shape file
 #         ---> input_data/indonesia_spatial/province_shapefiles/IDN_adm1.shp
 #   
-#          - INTERNET CONNEXION FOR GFC DATA TILES TO BE DOWNLOADED 
+#          - INTERNET CONNEXION FOR GFC DATA TILES TO BE DOWNLOADED (Hansen et al. 2013)
 #    
 #   Output: gfc_data_Indonesia_30th.tif
 #

@@ -6,9 +6,6 @@
 #   Inputs:   * Island polygons 
 #             ---> temp_data/processed_indonesia_spatial/island_sf 
 #
-#             * Global Forest Change (Hansen et al. 2013) 
-#             ---> tiles downloaded from internet from this script ///!!!\\\ THIS SCRIPT REQUIRES INTERNET CONNEXION ///!!!\\\
-#         
 #             * 2015 oil palm plantations (Austin et al. 2017) for Sumatra, Kalimantan and Papua,
 #             ---> oilpalm_2015_WGS1984.tif 
 # 
@@ -18,9 +15,9 @@
 #             * Georeferenced mills (from georeferencing works)                                           
 #             ---> IBS_UML_cs.dta
 #
-#   Outputs:  panel dataframes of LUCPFIP pixel-event count in parcels of a given size, from 2001 to 2018,  
-#             for the whole Indonesia (Sumatra, Kalimantan, Papua "row-binded"), 
-#             for 3 forest definitions (30% canopy closure in intact, degraded, and intact or degraded (total) primary forest).
+#   Main outputs:  panel dataframes of LUCPFIP pixel-event count in parcels of a given size, from 2001 to 2018,  
+#                 for the whole Indonesia (Sumatra, Kalimantan, Papua "row-binded"), 
+#                 for 3 forest definitions (30% canopy closure in intact, degraded, and intact or degraded (total) primary forest).
 #             
 #             There is one such dataframe for each combination of parcel size (only 3x3km for now) and catchment radius (10, 30, 50km)
 #             ---> lucpfip_panel_3km_10CR.rds 
@@ -30,9 +27,9 @@
 #   
 #   Actions:  This script consists of mainly three functions.  
 #             0. load needed packages; set working directory; set raster options; define the crs used throughout the script. 
-#                 /// !!! \\\ the chunksize and maxmemory raster options should be set accordingly with the machine used,  
+#                             the chunksize and maxmemory raster options should be set accordingly with the machine used,  
 #                             considering that this script executes parallel functions using parallel::detectCores() - 1
-#                             For instance, here we set chunksize to 1Go so that our 3 working cores processed 3Go together. 
+#                             It is recommended to not change default memory raster options. 
 #
 #             1. prepare_pixel_lucpfip(island)
 # 
@@ -93,6 +90,9 @@ dir.create("temp_data/processed_lu/annual_maps")
 
 # dataframes of parcels are stored here 
 dir.create("temp_data/processed_parcels")
+
+# raster temp files are stored there
+dir.create("temp_data/raster_tmp")
 
 
 ### RASTER OPTIONS ### 
@@ -170,7 +170,7 @@ prepare_pixel_lucpfip <- function(island){
                   method = "ngb",
                   crs = indonesian_crs, 
                   filename = file.path(paste0("temp_data/processed_lu/gfc_loss_",island,"_30th_prj.tif")), 
-                  dataType = "INT1U",
+                  datatype = "INT1U",
                   overwrite = TRUE)
     
     endCluster()
@@ -321,6 +321,7 @@ prepare_pixel_lucpfip <- function(island){
   clusterR(pf,
            fun = reclassify,
            args = list(rcl = rclmat, right = T, include.lowest = TRUE), 
+           #export = "rclmat", # works with or without 
            filename = file.path(paste0("temp_data/processed_lu/margono_primary_forest_",island,"_reclassified.tif")), 
            datatype = "INT1U",
            overwrite = TRUE)
@@ -349,7 +350,7 @@ prepare_pixel_lucpfip <- function(island){
   removeTmpFiles(h=0)
   
   
-  print(paste0("complete", "temp_data/processed_lu/margono_primary_forest_",island,"_aligned.tif"))
+  print(paste0("complete ", "temp_data/processed_lu/margono_primary_forest_",island,"_aligned.tif"))
   
 
 
@@ -420,7 +421,7 @@ prepare_pixel_lucpfip <- function(island){
   removeTmpFiles(h=0)
     
 
-  print(paste0("complete", "temp_data/processed_lu/lucpfip_",island,"_total.tif"))
+  print(paste0("complete ", "temp_data/processed_lu/lucpfip_",island,"_total.tif"))
   
   
   
@@ -492,7 +493,7 @@ prepare_pixel_lucpfip <- function(island){
     
   rasterOptions(tmpdir = "temp_data/raster_tmp")  
   
-  return(print("complete prepare_lucpfip ", island))
+  return(print(paste0("complete prepare_lucpfip ", island)))
 }
 
 
@@ -890,13 +891,13 @@ while(CR < 60000){
 # 
 # provinces <- st_read("C:/Users/GUYE/Desktop/opalval/analysis/input/IDN_adm/IDN_adm1.shp")
 # provinces <- dplyr::select(provinces, NAME_1)
-# # papua sample 
+# # papua sample
 # papua_bbox <- st_bbox(provinces[provinces$NAME_1 == "Papua" |
 #                                    provinces$NAME_1 == "Irian Jaya Barat", ]) %>% st_as_sfc()
 # papua_bbox <- st_transform(papua_bbox, crs = crs(pf))
 # papua_bbox <- as(papua_bbox, "Spatial")
 # 
-# # Riau sample 
+# # Riau sample
 # riau_bbox <- st_bbox(provinces[provinces$NAME_1 == "Riau",]) %>% st_as_sfc()
 # riau_bbox <- st_transform(riau_bbox, crs = crs(pf))
 # riau_bbox <- as(riau_bbox, "Spatial")
@@ -947,13 +948,20 @@ while(CR < 60000){
 #        9,12,2,
 #        12,14,1)
 # rclmat <- matrix(m, ncol = 3, byrow = TRUE)
-# rr <- reclassify(r, rclmat, right = TRUE, include.lowest = T)
+# beginCluster()
+# clusterR(r, 
+#          fun = reclassify,
+#          args = list(rcl = rclmat, right = TRUE, include.lowest = TRUE), 
+#          export = "rclmat",
+#          filename = "temp_data/test/r_reclassified.tif", 
+#          overwrite = TRUE)
+# endCluster()
 # 
 # # cluster reclassify on Papua
 # beginCluster()
 # clusterR(papuapf,
 #          fun = reclassify,
-#          args = list(rcl = rclmat, right = T, include.lowest = TRUE),
+#          args = list(rcl = rclmat, right = TRUE, include.lowest = TRUE),
 #          filename = "temp_data/test/papua_reclassified_pf.tif",
 #          datatype = "INT1U",
 #          overwrite = TRUE,
@@ -962,8 +970,8 @@ while(CR < 60000){
 # endCluster()
 # 
 # riaupf_rec <- raster("temp_data/test/papua_reclassified_pf.tif")
-# 
-# 
+
+
 
 ### Frmaework foreach dopar for projectRaster lucpfip
 
