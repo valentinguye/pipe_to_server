@@ -37,7 +37,7 @@
 
 # These are the packages needed in this particular script. 
 neededPackages = c("data.table", "dplyr", "readstata13", "readxl",
-                   "raster", "rgdal", "sp", "sf","gfcanalysis",
+                   "rgdal", "sf",
                    "doParallel", "foreach", "parallel")
 #install.packages("sf", source = TRUE)
 # library(sf)
@@ -140,10 +140,10 @@ ibs_cs <- lapply(ibs_cs, FUN = function(cs){mutate(cs, indo_crs_lat = st_coordin
 parcel_set_w_average <- function(parcel_size, catchment_radius){
   
   #### Prepare parcel panel ####
-  # Import the parcel panel 
-  parcels_centro <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",parcel_size/1000,"km_",catchment_radius/1000,"CR.rds")))
+  # Import the parcel panel (for IBS)
+  parcels_centro <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",parcel_size/1000,"km_",catchment_radius/1000,"km_IBS_CR.rds")))
   # keep only one cross-section, no matter which. 
-  parcels_centro <- filter(parcels_centro, year == 2001)
+  parcels_centro <- dplyr::filter(parcels_centro, year == 2001)
   # turn it into a sf object (lon lat are already expressed in indonesian crs)
   parcels_centro <- st_as_sf(parcels_centro, coords = c("lon", "lat"), remove = FALSE, crs = indonesian_crs)
   parcels_centro <- dplyr::select(parcels_centro, parcel_id, geometry)

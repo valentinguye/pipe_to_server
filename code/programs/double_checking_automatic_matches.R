@@ -18,18 +18,37 @@
 # if this script is open within R_project_for_individual_runs
 
 
-#### PACKAGES #### 
-# Installs all the packages required in this project, if not already installed in LUCFP/data_processing/renv/library
-renv::restore()
+### PACKAGES ###
+# see this project's README for a better understanding of how packages are handled in this project. 
 
 # These are the packages needed in this particular script. 
 neededPackages = c("data.table","dplyr","sjmisc", "stringr","Hmisc",
                    "readxl",  "foreign", "readstata13",
                    "sf", "rgdal")
 
-# Load them
+# Install them in their project-specific versions
+renv::restore(packages = neededPackages)
+
+# Load them 
 lapply(neededPackages, library, character.only = TRUE)
 
+# /!\/!\ IF renv::restore(neededPackages) FAILS TO INSTALL SOME PACKAGES /!\/!\ 
+
+# For instance sf could cause trouble https://github.com/r-spatial/sf/issues/921 
+# or magick, as a dependency of raster and rgdal. 
+
+# FOLLOW THESE STEPS:
+# 1. Remove these package names from neededPackages above, and rerun renv::restore(packages = neededPackages)
+# 2. Write them in troublePackages below, uncomment, and run the following code chunk: 
+
+# # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
+# troublePackages <- c("")
+# # Attempt to load packages from user's default libraries.
+# lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
+
+# 3. If the troubling packages could not be loaded ("there is no package called ‘’") 
+#   you should try to install them, preferably in their versions stated in the renv.lock file. 
+#   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
 #### PREPARE DATA ####
 
@@ -159,9 +178,5 @@ oto_to_check <- dplyr::select(oto_to_check, y, everything())
 # were found to be the mills they were spatially matched with. 
 # may be they can be matched with mills from MD?
 
-# 2042
-# https://www.google.com/maps/place/PT.+Varem+Sawit+Cemerlang+(VSC)/@2.6631912,99.6651437,844m/data=!3m2!1e3!4b1!4m10!1m4!3m3!1s0x0:0x0!2zMsKwMzknNTQuMCJOIDk5wrA0MCcwMS4yIkU!3b1!3m4!1s0x3032696d0a5bf5d3:0xd49167b3c06c5425!8m2!3d2.6631912!4d99.6673324
-# seems to confirm SM
 
-# 
 

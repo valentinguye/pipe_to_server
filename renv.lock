@@ -440,6 +440,13 @@
       "Repository": "CRAN",
       "Hash": "d908914ae53b04d4c0c0fd72ecc35370"
     },
+    "leaflet": {
+      "Package": "leaflet",
+      "Version": "2.0.3",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "3f3f5e5603fc791dfb77279ad84cc711"
+    },
     "lifecycle": {
       "Package": "lifecycle",
       "Version": "0.1.0",
@@ -752,6 +759,13 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "c40cfd786b30c20ea9f1247f06a7ee56"
+    },
+    "velox": {
+      "Package": "velox",
+      "Version": "0.2.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "e5fe7b3a61bf28552edb278a9eab3a80"
     },
     "viridis": {
       "Package": "viridis",

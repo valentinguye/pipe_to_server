@@ -48,6 +48,8 @@ global base_path_wd "C:/Users/GUYE/Desktop/opalval"
 global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 
 
+***** PREPARE DATA ***** 
+
 **** explicative variables 
 
 	*** extract palm oil mills from IBS main input/output datasets (IBS_IO) - and clean measurement unit and reshape. 
@@ -199,6 +201,8 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 	*			temp_data/processed_UML/UML_valentin_imputed_est_year.dta
 
 	** compute concentration variable 
+
+	* /!\ 10:40 hours to be executed.
 	rsource using "code/explicative_variables/mill_concentration.R"
 	* input 	temp_data/processed_UML/UML_valentin_imputed_est_year.dta
 
@@ -232,7 +236,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		*			temp_data/processed_lu/gfc_data_Indonesia_60th.tif 
 		*			temp_data/processed_lu/gfc_data_Indonesia_90th.tif 
 
-	*** prepare annual maps of deforestation according to different definitions
+	*** prepare parcel maps of annual LUC from primary forest to industrial plantations (LUCPFIP)
 		rsource using "code/outcome_variables/prepare_lucpfip.R" 
 		* input:	temp_data/processed_indonesia_spatial/island_sf
 		* 			input_data/austin_plantation_maps/IIASA_indo_oilpalm_map/oilpalm_2015_WGS1984.tif
@@ -240,13 +244,35 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		*			temp_data/processed_mill_geolocalization/IBS_UML_cs.dta
 
 		* output: 
-		*		Raster outputs 
+		*		Main raster outputs 
 		*			temp_data/processed_lu/annual_maps/lucpfip_ISLAND_TYPE_YEAR.tif for ISLAND = ("Sumatra, Kalimantan, Papua), TYPE = (intact, degraded, total) and YEAR = (2001-2018)
 		*			temp_data/processed_lu/annual_maps/parcel_lucpfip_ISLAND_PS_TYPE.tif for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, TYPE = (intact, degraded, total) and YEAR = (2001-2018)
 		
 		*		Dataframe outputs 
-		*			temp_data/processed_parcels/lucpfip_panel_ISLAND_PS_CR_TYPE.rds for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, CR = (10CR, 30CR, 50CR) TYPE = (intact, degraded, total) and YEAR = (2001-2018)
-		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR) : each one has rows from three islands and columns for three forest definitions.  
+		*			temp_data/processed_parcels/lucpfip_panel_ISLAND_PS_CR_TYPE.rds for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR) TYPE = (intact, degraded, total) and YEAR = (2001-2018)
+		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR) : each one has rows from three islands and columns for three forest definitions.  
+
+	*** prepare parcel maps of annual LUC from 30, 60 and 90% tree cover forest outside 2000 industrial oil palm plantations (LUCFIP)
+		rsource using "code/outcome_variables/prepare_lucfip" 
+		* input:	temp_data/processed_indonesia_spatial/island_sf
+		*			temp_data/processed_lu/gfc_data_Indonesia_30th.tif
+		*			temp_data/processed_lu/gfc_data_Indonesia_60th.tif
+		*			temp_data/processed_lu/gfc_data_Indonesia_90th.tif
+		* 			input_data/austin_plantation_maps/IIASA_indo_oilpalm_map/oilpalm_2000_WGS1984.tif
+		*			temp_data/processed_lu/austin_ioppm_2015_Sumatra_aligned.tif
+		*			temp_data/processed_lu/austin_ioppm_2015_Kalimantan_aligned.tif
+		*			temp_data/processed_lu/austin_ioppm_2015_Papua_aligned.tif
+		*			temp_data/processed_mill_geolocalization/IBS_UML_cs.dta
+
+		* output: 
+		*		Main raster outputs 
+		*			temp_data/processed_lu/annual_maps/lucfip_ISLAND_TH_YEAR.tif for ISLAND = ("Sumatra, Kalimantan, Papua), TH = (30, 60, 90) and YEAR = (2001-2018)
+		*			temp_data/processed_lu/annual_maps/parcel_lucfip_ISLAND_PS_TH.tif for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, TH = (30, 60, 90) and YEAR = (2001-2018)
+		
+		*		Dataframe outputs 
+		*			temp_data/processed_parcels/lucfip_panel_ISLAND_PS_CR_TH.rds for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR) TH = (30, 60, 90) and YEAR = (2001-2018)
+		*			temp_data/processed_parcels/lucfip_panel_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR) : each one has rows from three islands and columns for three forest definitions.  
+
 
 	*** prepare emissions from LUCPFIP 
 		rsource using "code/outcome_variables/prepare_emissions.R"
@@ -261,7 +287,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 	 how many they are (what is the catchment radius - CR = 10000, 30000, 50000 (meters)).  */	
 	rsource using "code/explicative_variables/wa_at_parcels.R"
 		* input   	temp_data/IBS_UML_panel_final.dta
-		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
 
 		* output 	temp_data/processed_parcels/temp_cs_wa_explanatory/cs_wa_explanatory_PS_CR_YEAR.rds for PS = 3km, CR = (10CR, 30CR, 50CR) and YEAR = (1998-2015)
 		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
@@ -274,8 +300,41 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 
 		*output: 	temp_data/processed_parcels/wa_panel_parcels_reachable_uml_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 
-		* MERGE WITH OUTCOME VARIABLES !!!!!!!! 
-		* in a dedicated script. 
+		* MERGE WITH OUTCOME VARIABLES 
 
 
-///// analysis
+***** ANALYSIS *****
+* note: we do the conversion from pixel counts to areas in here, 
+* depending on what we need. This is not done in earlier stages, so it will have to be done before analysis in further scripts too. 
+**** Descriptive statistics
+
+	*** Outcome variables
+	rsource using "code/descriptive_statistics/lucfp_des_stats.R"
+		* input 	temp_data/processed_lu/gfc_data_Indonesia_30th.tif, gfc_data_Indonesia_60th.tif, gfc_data_Indonesia_90th.tif 
+		*			temp_data/processed_lu/austin_ioppm_2000_",island,"_aligned.tif
+		*			temp_data/processed_lu/margono_primary_forest_island_aligned.tif
+
+		*			temp_data/processed_lu/parcel_lucfip_ISLAND_PS_TH.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") PS = 3km, TH = (30th, 60th, 90th)
+		*			temp_data/processed_lu/parcel_lucpfip_ISLAND_PS_TH.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") PS = 3km, TH = (30th, 60th, 90th)
+
+		*			input_data/GEE_outputs 	/!\ these data come from the execution of code at 
+		*			with inputs from this script's parts: ##### Prepare polygons of interest ##### ; 
+		*												  #### Prepare 30, 60, 90% forest cover outside industrial plantations in 2000 ####
+		*											      #### Prepare intact, degraded and total primary forest cover in 2000 ####
+
+
+		* Main output 	temp_data/processed_indonesia_spatial/mill_cr_prj_ISLAND
+		*				temp_data/processed_lu/gfc_fc2000_outside_ip_ISLAND_TH.tif
+		*				temp_data/processed_lu/margono_TYPE_primary_forest_ISLAND_aligned.tif	
+
+		*				LateX table codes. 
+
+
+
+
+
+
+
+
+
+

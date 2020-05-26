@@ -13,8 +13,8 @@ if(!("renv" %in% utils::installed.packages()[,"Package"])){
 # We run this before source("renv/activate.R") because otherwise error 35 is thrown
 # if renv is not available in user default library. 
 renv::activate()
-# 
-# # Activate renv
+# # 
+# # # Activate renv
 source("renv/activate.R")
 
 # renv::activate()

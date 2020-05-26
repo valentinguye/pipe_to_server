@@ -7,8 +7,7 @@
 #           parcel panel from previous step (i.e. making weighted averages)
 #           --> pattern: wa_panel_parcels_ ; for each parcel_size and catchment_radius combination
 # 
-#   Outputs: parcel panel with 3 new columns: the parcel and time varying numbers of 
-#             UML mills reachable within 10, 30 and 50km. 
+#   Outputs: parcel panel with 3 new columns: the parcel and time varying numbers of UML mills reachable within 10, 30 and 50km. 
 #           --> pattern panel_parcels_reachable_uml_ ; for each parcel_size and catchment_radius combination
 # 
 # 
@@ -28,9 +27,8 @@
 # see this project's README for a better understanding of how packages are handled in this project. 
 
 # These are the packages needed in this particular script. 
-neededPackages = c("data.table", "dplyr", "readstata13", "readxl",
-                   "raster", "rgdal", "sp", "sf","gfcanalysis",
-                   "doParallel", "foreach", "parallel")
+neededPackages = c("dplyr", "readstata13", 
+                   "rgdal", "sf")
 #install.packages("sf", source = TRUE)
 # library(sf)
 # 
@@ -97,6 +95,15 @@ uml <- uml[!is.na(uml$lat),]
 uml <- st_as_sf(uml, coords = c("lon", "lat"), crs = 4326)
 uml <- st_transform(uml, crs = indonesian_crs)
 
+# read the sample panel of IBS geolocalized mills
+ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
+ibs <- ibs[!is.na(ibs$lat),]
+length(unique(ibs$firm_id))
+class(ibs$year)
+ibs_cs <- lapply(years, FUN = function(x) ibs[ibs$year == x,]) 
+ibs_cs <- lapply(ibs_cs, FUN = st_as_sf, coords =  c("lon", "lat"), remove = TRUE, crs = 4326)
+ibs_cs <- lapply(ibs_cs, FUN = st_transform, crs = indonesian_crs)
+ibs_cs <- lapply(ibs_cs, FUN = st_geometry)
 
 make_n_reachable_uml <- function(parcel_size, catchment_radius){
   
@@ -105,26 +112,46 @@ make_n_reachable_uml <- function(parcel_size, catchment_radius){
                                       parcel_size/1000,"km_",
                                       catchment_radius/1000,"CR.rds")))
   
-  # keep only a cross section and variables needed
-  parcels_centro <- parcels_centro[parcels_centro$year == 1998, c("parcel_id", "lat", "lon")]
-  
-  # turn it into a sf object (lon lat are already expressed in indonesian crs)
+  # make a spatial cross section of it (parcels' coordinates are constant over time)
+  parcels_centro <- parcels[parcels$year == 1998, c("parcel_id", "lat", "lon")]
+  # (lon lat are already expressed in indonesian crs)
   parcels_centro <- st_as_sf(parcels_centro, coords = c("lon", "lat"), remove = T, crs = indonesian_crs)
   
   CR <- 10000
   while(CR < 60000){
-    parcels$newv <- rep(0, nrow(parcels))
+    parcels$newv_uml <- rep(0, nrow(parcels))
 
     for(t in 1:length(years)){
       
+      # UML
+      # This is not a panel, so the information on presence or not a given year is whether 
+      # the establishment year is anterior. We impute NA establishment year to be older than 1998. 
       present_uml <- uml[uml$est_year_imp <= years[t] | is.na(uml$est_year_imp),]
-      
+
       annual_reachable_uml <- st_is_within_distance(parcels_centro, present_uml, dist = CR)
-      parcels[parcels$year == years[t], "newv"] <- lengths(annual_reachable_uml) 
+      parcels[parcels$year == years[t], "newv_uml"] <- lengths(annual_reachable_uml)
+
+      # IBS
+      # n_reachable_ibs was already computed in wa_at_parcels.R
+      # We used the year variable from the IBS panel to determine whether a firm was present in a given year. 
+      # This means that when a firm has a yearly record missing, although we know it was there 
+      # that year bc we observe an older and an earlier records, we do not count it as reachable 
+      # by the parcel, because no IBS information would be usable that year in such a case. 
     
-    } 
+    }
     
-  colnames(parcels)[colnames(parcels) == "newv"] <- paste0("n_reachable_uml_",CR,"km")
+    
+  # IBS/UML (sample coverage)
+  # any reachable ibs is also counted as a reachable uml
+  nrow(parcels[parcels$newv_uml< parcels$n_reachable_ibs,])
+  
+  # we give to each parcel a ratio that informs on how much of the total influence it gets from all (uml) 
+  # reachable mills is observed in our sample (ibs)  
+  parcels$newv_ibs_uml <- rep(0, nrow(parcels))  
+  parcels[parcels$newv_uml != 0, "newv_ibs_uml"] <- parcels[parcels$newv_uml != 0, "n_reachable_ibs"]/parcels[parcels$newv_uml != 0,"newv_uml"]
+    
+  colnames(parcels)[colnames(parcels) == "newv_uml"] <- paste0("n_reachable_uml_",CR,"km")
+  colnames(parcels)[colnames(parcels) == "newv_ibs_uml"] <- paste0("sample_coverage_",CR,"km")
   
   CR <- CR + 20000
   }

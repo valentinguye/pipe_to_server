@@ -40,12 +40,12 @@ library (packages in specific versions) if it is not up to date in ~/renv/librar
 These packages and their respective versions are registered in the renv.lock file provided with the project (the project local library is not). 
 
 The packages required in this project are disclosed to renv::dependencies(), used by renv::snapshot() to update the renv.lock. Therefore:
-If the user needs to load new packages, she should add library(package) in the disclose_dependencies.R script, save it, and run the last 
-line (renv::snapshot() command). See ?renv::dependencies to know more. 
+If the user needs to load new packages, she should add a "library(package)" line in the disclose_dependencies.R script, save it, and run the
+renv::snapshot() command. See ?renv::dependencies to know more. 
 It the user needs to install new packages, she might have error messages of the kind 'package "..." is not available.' 
 A work around is to remove all renv architecture (renv/ and renv.lock), install the new package (in default user lib), 
 write a line library(new.package) in disclose_dependencies.R and run renv::init(). The new renv/library should contain the new package. 
-
+But this would completely change the renv.lock file: packages would be registered there versions from user default libraries, and not from project anymore. 
 
 
 

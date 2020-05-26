@@ -134,7 +134,7 @@ parallel_mill_concentration <- function(ncores){
           # .multicombine = TRUE, # not necessary if .combine = cbind because then the default multicombine is TRUE anyways
           .inorder = FALSE, # we don't care that the results be combined in the same order they were submitted
           .export = c("indonesian_crs", "years"), 
-          .packages = c("sf", "tidyverse", "readstata13"),
+          .packages = c("sf", "dplyr", "readstata13"),
           .verbose = TRUE) %dopar% 
     catchment_radius_mill_concentration(catchment_radius) # the function that is parallelly applied to different catchment_radius  
 }# closes parallel_w_averages

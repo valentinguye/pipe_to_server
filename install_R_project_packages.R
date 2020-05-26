@@ -25,12 +25,13 @@
 # script has been already executed or not. 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-
+#"kableExtra",
 # Specify project-wide packages to install
 neededPackages <- c("data.table", "dplyr", "plyr", "Hmisc", "sjmisc", "stringr",
                     "readstata13", "foreign", "readxl", "writexl",
-                    "raster", "rgdal", "sp", "sf","gfcanalysis",
-                    "doParallel", "foreach", "parallel", "snow")
+                    "raster", "rgdal", "sp", "sf","gfcanalysis", "velox",
+                    "doParallel", "foreach", "parallel", "snow", 
+                     "knitr", "leaflet")
 
 # Note that from ?renv::restore 
 # "Any required recursive dependencies of the requested packages will be restored as well."
@@ -96,8 +97,22 @@ if(FALSE){
   library(foreach)
   library(parallel)
   library(snow)
+  #library(kableExtra)
+  library(knitr)
+  library(leaflet)
+  library(velox)
+  
 }
 
+# If new packages are needed along the project data processing workflow, one should: 
+# 1. install the packages in a user local default library (you may have to chose explicitly which, hence the brackets after default_libraries)
+install.packages("leaflet", lib = default_libraries[1])
+# 2. add 'library(package)' in the list above, and ',"package"' in the neededPackages vector above.
+# 3. perform an implicit (the default) snapshot, that writes to the renv.lock file the packages at
+# the intersection between packages found in the project by renv::dependencies() 
+# (hence the 'library(package)' line from 2. above.) 
+# and packages installed in user default libraries (hence point 1. and the argument library below)
+renv::snapshot(library = default_libraries)
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
