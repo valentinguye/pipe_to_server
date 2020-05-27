@@ -57,7 +57,7 @@
 
 # These are the packages needed in this particular script. 
 neededPackages = c("data.table", "dplyr", "readstata13", "readxl",
-                   "raster", "rgdal", "sp", "sf","gfcanalysis",
+                   "raster", "rgdal", "sp", "sf",
                    "doParallel", "foreach", "parallel")
 
 # Install them in their project-specific versions
@@ -613,8 +613,8 @@ aggregate_lucpfip <- function(island, parcel_size){
 # Parcels that are near the coast and hence consist of less ground than others are not discarded by the use 
 # of island polygons when making the mask. This is just a particular fixed feature.  
 # Mills are selected, as belonging to the island, and then the mask is made by extending large (60km) CR around them. 
-# Then, parcels that remain (are not masked) are not discarded by st_is_within_distance,
-# even if parts of their areas are in the sea, as long as their centroids are less then a given distance. 
+# Then, parcels that remain (i.e. are not masked) are not discarded by st_is_within_distance,
+# even if parts of their areas are in the sea, as long as their centroids are less than a given distance. 
 
 
 to_panel_within_CR <- function(island, parcel_size, catchment_radius){

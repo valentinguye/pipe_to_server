@@ -92,7 +92,7 @@ write.dta(final, file.path(paste0("temp_data/panel_parcels_final_",
 write_xlsx(final, file.path(paste0("temp_data/panel_parcels_final_",
                                   outcome_variables,"_",
                                   parcel_size/1000,"km_",
-                                  catchment_radius/1000,"CR.dta")))  
+                                  catchment_radius/1000,"CR.xlsx")))  
 
 }
 
