@@ -52,20 +52,30 @@ lapply(neededPackages, library, character.only = TRUE)
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
 
-merge_lhs_rhs <- function(outcome_variables, parcel_size, catchment_radius){
+merge_lhs_rhs <- function(parcel_size, catchment_radius){
 
-#  outcome variables 
-LHS <- readRDS(file.path(paste0("temp_data/processed_parcels/",
-                                outcome_variables,"_panel_",
+# megre lucpfip and lucfip outcome variables data sets together
+lucpfip <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",
                                 parcel_size/1000,"km_",catchment_radius/1000,"km_IBS_CR.rds")))
 
 # keep only year before 2015 (after they mean nothing since we plantation data are from 2015)
-LHS <- LHS[LHS$year<=2015,] # now runs from 2001-1998
+lucpfip <- lucpfip[lucpfip$year<=2015,] # now runs from 2001-1998
 # remove coordinates, they are already in RHS
-LHS <- dplyr::select(LHS, -lat, -lon)
+lucpfip <- dplyr::select(lucpfip, -lat, -lon)
+
+lucfip <- readRDS(file.path(paste0("temp_data/processed_parcels/lucfip_panel_",
+                                    parcel_size/1000,"km_",catchment_radius/1000,"km_IBS_CR.rds")))
+
+# keep only year before 2015 (after they mean nothing since we plantation data are from 2015)
+lucfip <- lucfip[lucfip$year<=2015,] # now runs from 2001-1998
+# remove coordinates, they are already in RHS
+lucfip <- dplyr::select(lucfip, -lat, -lon)
+
+nrow(lucpfip)==nrow(lucfip)
+LHS <- base::merge(lucpfip, lucfip, by = c("parcel_id", "year"))
 
 # explicative variables (runs from 1998-2015)
-RHS <-  readRDS(file.path(paste0("temp_data/processed_parcels/wa_panel_parcels_reachable_uml_",
+RHS <-  readRDS(file.path(paste0("temp_data/processed_parcels/wa_panel_parcels_more_variables_",
                                   parcel_size/1000,"km_",catchment_radius/1000,"CR.rds")))
 
 # MERGE
@@ -76,32 +86,23 @@ final <- base::merge(LHS, RHS, by = c("parcel_id", "year"), all = TRUE)
 final <- dplyr::arrange(final, parcel_id, year)
 row.names(final) <- seq(1,nrow(final))
 
-saveRDS(final, file.path(paste0("temp_data/panel_parcels_final_",
-                                outcome_variables,"_",
+saveRDS(final, file.path(paste0("temp_data/panel_parcels_ip_final_",
                                 parcel_size/1000,"km_",
                                 catchment_radius/1000,"CR.rds")))  
-
-write.dta(final, file.path(paste0("temp_data/panel_parcels_final_",
-                                outcome_variables,"_",
-                                parcel_size/1000,"km_",
-                                catchment_radius/1000,"CR.dta")))  
 
 # this does not write the largest data frames (catchment_radius of 50km)
 # (Erreur : Error in libxlsxwriter: 'Worksheet row or column index out of range.')
 # run it to get the two other ones in xlsx format still. 
-write_xlsx(final, file.path(paste0("temp_data/panel_parcels_final_",
-                                  outcome_variables,"_",
-                                  parcel_size/1000,"km_",
-                                  catchment_radius/1000,"CR.xlsx")))  
+# write_xlsx(final, file.path(paste0("temp_data/panel_parcels_ip_final_",
+#                                   parcel_size/1000,"km_",
+#                                   catchment_radius/1000,"CR.xlsx")))  
 
 }
 
-OV <- "lucpfip"
 PS <- 3000 
 catchment_radiuseS <- c(1e4, 3e4, 5e4) # (in meters)
 for(CR in catchment_radiuseS){
-  merge_lhs_rhs(outcome_variables = OV, 
-                parcel_size = PS, 
+  merge_lhs_rhs(parcel_size = PS, 
                 catchment_radius = CR)
 }
 

@@ -284,7 +284,12 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 
 	/* Distribute geolocalized IBS mill variables to square parcels with distance-weighted averages.  
 	 Parcels are grouped in dataframes according to their size (3x3km only currently - i.e. PS = 3000 (meters)) and 
-	 how many they are (what is the catchment radius - CR = 10000, 30000, 50000 (meters)).  */	
+	 how many they are (what is the catchment radius: CR = 10km, 30km, 50km).  
+	
+	Note that prepare_OUTCOME_VAR scripts outputted dataframes for catchment radii of both IBS and UML mill sets, and hence this is specified in file names. 
+	However, in further RHS-related scripts, we always use parcels within IBS catchment radii, and hence do not specify it in file names.  
+	 */	
+
 	rsource using "code/explicative_variables/wa_at_parcels.R"
 		* input   	temp_data/IBS_UML_panel_final.dta
 		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
@@ -293,14 +298,24 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 
 
-	** add variables of the number of UML mills that are reachable from each parcel in each year within 10, 30 and 50km. 
-	make_n_reachable_uml.R
+	/* add information on the number of UML mills that are reachable from each parcel in each year within 10, 30 and 50km. 
+	  and on the share of IBS sample in this total number of reachable UML mills. 
+	  /!\ ~1h */
+	rsource using "code/explicative_variables/make_n_reachable_uml.R"	
 		* input:	temp_data/processed_UML/UML_valentin_imputed_est_year.dta
 		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds  	 for PS = 3km, CR = (10CR, 30CR, 50CR)
 
 		*output: 	temp_data/processed_parcels/wa_panel_parcels_reachable_uml_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+		*			temp_data/processed_parcels/wa_panel_parcels_more_variables_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 
-		* MERGE WITH OUTCOME VARIABLES 
+
+**** Merge LHS and RHS (!)
+	rsource using "code/merge_lhs_rhs_parcels.R"
+		* input: 	temp_data/processed_parcels/OV_panel_PS_CR.rds 		for OV = (lucpfip, lucfip, ... ); PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
+		*			temp_data/processed_parcels/wa_panel_parcels_more_variables_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+
+		* output: 	temp_data/panel_parcels_ip_final_PS_CR.rds  for PS = 3km, CR = (10CR, 30CR, 50CR)
+
 
 
 ***** ANALYSIS *****
