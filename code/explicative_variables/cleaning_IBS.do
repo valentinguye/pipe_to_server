@@ -1533,6 +1533,13 @@ drop merge_base_prelu
 replace island_name = "Sumatra" if island_name == "Riau"
 replace island_factor = 8 if island_factor == 6
 
+* maxmode handles missings (if there is the same amount of missing as of one island, then the mode is the island string.)
+bys firm_id (year): egen island_mode = mode(island_name), missing maxmode
+
+replace island_name = island_mode 
+
+drop island_mode
+
 *** DISTRICTS 
 ** For 2000-2010 use district_id already available. For other years, build it. 
 tostring province, generate(province_str)

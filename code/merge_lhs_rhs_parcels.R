@@ -86,6 +86,7 @@ final <- base::merge(LHS, RHS, by = c("parcel_id", "year"), all = TRUE)
 final <- dplyr::arrange(final, parcel_id, year)
 row.names(final) <- seq(1,nrow(final))
 
+
 saveRDS(final, file.path(paste0("temp_data/panel_parcels_ip_final_",
                                 parcel_size/1000,"km_",
                                 catchment_radius/1000,"CR.rds")))  

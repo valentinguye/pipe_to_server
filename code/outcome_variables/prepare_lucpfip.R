@@ -117,14 +117,15 @@ indonesian_crs <- "+proj=cea +lon_0=115.0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +
 # makes a resolution of 27.7 ; 27.8 meters. 
 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-
 # preliminary: read the island shapefile
 island_sf <- st_read(file.path("temp_data/processed_indonesia_spatial/island_sf"))
 names(island_sf)[names(island_sf)=="island"] <- "shape_des"
 
 island_sf_prj <- st_transform(island_sf, crs = indonesian_crs)
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+
 
 ##### 1. PREPARE 30m PIXEL-LEVEL MAPS OF LUCPFIP ##### 
 
@@ -306,7 +307,7 @@ prepare_pixel_lucpfip <- function(island){
   # 3   - No change of non-primary from 2000-2012
   
   # The intact classes are 2, 4-9, 13-15
-  # The degraded classes are 10-12
+  # The degraded classes are 1, 10-12
   
   # Therefore the reclassification matrix is 
   m <- c(0,0,0, 
@@ -892,7 +893,7 @@ for(sample in sampleS){
   CR <- 10000 # i.e. 10km radius
   while(CR < 60000){
     
-    # For each Island, join columns of lucfip variable for different forest thresholds. 
+    # For each Island, join columns of lucfip variable for different forest definitions 
     df_list <- list()
     IslandS <- c("Sumatra", "Kalimantan", "Papua")
     for(Island in IslandS){
@@ -911,14 +912,32 @@ for(sample in sampleS){
     # stack the three Islands together
     indo_df <- bind_rows(df_list)
     
+    
+    ### Add columns of converted pixel counts to hectares.
+    pixel_area <- (27.8*27.6)/(1e4)
+    # intact
+    indo_df <- mutate(indo_df, lucpfip_ha_intact = lucpfip_pixelcount_intact*pixel_area) 
+    # degraded
+    indo_df <- mutate(indo_df, lucpfip_ha_degraded = lucpfip_pixelcount_degraded*pixel_area) 
+    # total
+    indo_df <- mutate(indo_df, lucpfip_ha_total = lucpfip_pixelcount_total*pixel_area) 
+
+    indo_df <- dplyr::select(indo_df, parcel_id, year, 
+                             lucpfip_ha_intact,
+                             lucpfip_ha_degraded, 
+                             lucpfip_ha_total,
+                             lucpfip_pixelcount_intact,
+                             lucpfip_pixelcount_degraded, 
+                             lucpfip_pixelcount_total,
+                             everything())
+    
+    
     saveRDS(indo_df, file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",PS/1000,"km_",CR/1000,"km_",sample,"_CR.rds")))
     
     rm(indo_df, df_list)
     CR <- CR + 20000
   }
 }
-
-
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 

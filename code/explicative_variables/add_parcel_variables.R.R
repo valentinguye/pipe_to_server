@@ -9,13 +9,24 @@
 # 
 #           parcel panel from previous step (i.e. making weighted averages)
 #           --> pattern: wa_panel_parcels_ ; for each parcel_size and catchment_radius combination
+#         
+#           island polygons
+#           --> temp_data/processed_indonesia_spatial/island_sf
+#
+#           district polygons and names (prepare in prepare_crosswalks.do)
+#           --> input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp
+#           --> temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta
 # 
-#   Outputs: parcel panel with 3 new columns: the parcel and time varying numbers of UML mills reachable within 10, 30 and 50km. 
-#           --> pattern panel_parcels_reachable_uml_ ; for each parcel_size and catchment_radius combination
+#           baseline forest extents variables in cross-section (prepare in prepare_2000_forest_extents.R)
+#           --> pattern: temp_data/processed_parcels/baseline_fc_cs_", for each parcel_size and IBS catchment_radius combination 
+#
+#
+#   Outputs: parcel panel with new columns: the parcel and time varying numbers of UML mills reachable within 10, 30 and 50km. 
+#                                           the island, the district, and the pixelcounts and areas (ha) of 2000 forest extents
+#                                           (for 30% tree canopy density outside indsutrial plantations and total primary forest. 
+#           --> pattern wa_panel_parcels_more_variables_ ; for each parcel_size and catchment_radius combination
 # 
 # 
-
-
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
 
@@ -30,7 +41,7 @@
 # see this project's README for a better understanding of how packages are handled in this project. 
 
 # These are the packages needed in this particular script. 
-neededPackages = c("dplyr", "readstata13", 
+neededPackages = c("dplyr", "readstata13", "foreign",
                    "rgdal", "sf")
 #install.packages("sf", source = TRUE)
 # library(sf)
@@ -81,8 +92,8 @@ years <- seq(1998, 2015, 1)
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
-
-
+# This takes ~1h 
+#### ADD N REACHABLE UML AND SAMPLE COVERAGE #### 
 # read the most complete version of UML we have. 
 uml <- read.dta13(file.path("temp_data/processed_UML/UML_valentin_imputed_est_year.dta"))
 uml <- uml[!is.na(uml$lat),]
@@ -168,16 +179,20 @@ while(catchment_radius < 60000){
 
 
 
-##### ADD GEGRAPHIC VARIABLES ##### 
 
+#### ADD GEGRAPHIC VARIABLES AND BASELINE FOREST EXTENT VARIABLES ####
 parcel_size <- 3000
-catchment_radiuseS <- c(1e4, 3e4, 5e4)
+catchment_radiuseS <- c(1e4, 3e4, 5e4)#
 for(catchment_radius in catchment_radiuseS){
+  # this is prepared in this script's previous part (add n reachable uml... )
   parcels <- readRDS(file.path(paste0("temp_data/processed_parcels/wa_panel_parcels_reachable_uml_",
                                       parcel_size/1000,"km_",
                                       catchment_radius/1000,"CR.rds")))
   
-  parcels <- st_as_sf(parcels, coords = c("lon", "lat"), crs = indonesian_crs)
+  parcels <- st_as_sf(parcels, coords = c("lon", "lat"), crs = indonesian_crs, remove = FALSE)
+  
+  
+  ### GEOGRAPHIC VARIABLES 
   
   # ISLAND variable
   island_sf <- st_read(file.path("temp_data/processed_indonesia_spatial/island_sf"))
@@ -216,14 +231,27 @@ for(catchment_radius in catchment_radiuseS){
   
   # DISTRICT variable
   district_sf <- st_read(file.path("input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp"))
+  district_names <- read.dta13(file.path("temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta"))
+  district_names <- district_names[!duplicated(district_names$bps_),]
+  district_sf$d__2000 <- district_sf$d__2000 %>% as.character()
+  district_names$bps_ <- district_names$bps_ %>% as.character()
+  district_sf <- left_join(x = district_sf, y = district_names[,c("name_", "bps_")], 
+                       by = c("d__2000" = "bps_"),
+                       all = FALSE, all.x = FALSE, all.y = FALSE)
+  
   
   district_sf_prj <- st_transform(district_sf, crs = indonesian_crs)
+  
+  
   
   dlm <- st_contains(district_sf_prj, parcels$geometry, sparse = FALSE)
   
   nrow(dlm)
-  row.names(dlm) <- district_sf_prj$d__2000
+  class(dlm[,1])
+  row.names(dlm) <- district_sf_prj$name_
   
+  # to each column of dlm, i.e. to each grid cell, attribute the name of the district 
+  # it is contained by. 
   districts <- lapply(c(1:ncol(dlm)), FUN = function(col){row.names(dlm)[dlm[,col]==T]})
   
   districts[lengths(districts)==0] %>% length()
@@ -234,16 +262,40 @@ for(catchment_radius in catchment_radiuseS){
   districts[lengths(districts)==0] <- "sea"
   
   parcels$district <- unlist(districts)
+
   
-  saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/wa_panel_parcels_more_variables_",
-                                     parcel_size/1000,"km_",
-                                     catchment_radius/1000,"CR.rds")))
+  
+  ### BASELINE FOREST EXTENT VARIABLES 
+  
+  # this is a cross section, computed in prepare_2000_forest_extents.R
+  bfe <- readRDS(file.path(paste0("temp_data/processed_parcels/baseline_fc_cs_",
+                                  parcel_size/1000,"km_",
+                                  catchment_radius/1000,"km_IBS_CR.rds")))
+  bfe <- dplyr::select(bfe, parcel_id, lat, lon, everything())
+  # merge it with our parcel panel
+  parcels1 <- base::merge(parcels, 
+                          dplyr::select(bfe, -lat, -lon), by = "parcel_id")
+  
+  # test that the parcel_id have been attributed to parcels equally in the two processes 
+  # (prepare_lucpfip.R and prepare_2000_forest_extents.R)
+  # 
+  # parcels2 <- base::merge(parcels, bfe, by = c("parcel_id", "lat","lon"))
+  # setorder(parcels1, parcel_id, year)
+  # setorder(parcels2, parcel_id, year)
+  # row.names(parcels1) <- NULL
+  # row.names(parcels2) <- NULL
+  # all.equal(st_drop_geometry(parcels1[,c("parcel_id", "lon","lat")]), 
+  #           st_drop_geometry(parcels2[,c("parcel_id", "lon","lat")]))
+  # 
+  # all(names(parcels1)==names(parcels2))
+  # all.equal(st_drop_geometry(parcels1), st_drop_geometry(parcels2))
+  # rm(parcels2)
+  
+  
+  saveRDS(parcels1, file.path(paste0("temp_data/processed_parcels/wa_panel_parcels_more_variables_",
+                                      parcel_size/1000,"km_",
+                                      catchment_radius/1000,"CR.rds")))
 }
-
-
-
-
-
 
 
 

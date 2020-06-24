@@ -766,6 +766,32 @@ for(sample in sampleS){
     # stack the three Islands together
     indo_df <- rbind(df_list[[1]], df_list[[2]], df_list[[3]])
     
+    ### Add columns of converted pixel counts to hectares.
+    pixel_area <- (27.8*27.6)/(1e4)
+    # 30th
+    indo_df <- mutate(indo_df, lucfip_ha_30th = lucfip_pixelcount_30th*pixel_area) 
+    # 60th
+    indo_df <- mutate(indo_df, lucfip_ha_60th = lucfip_pixelcount_60th*pixel_area) 
+    # 90th
+    indo_df <- mutate(indo_df, lucfip_ha_90th = lucfip_pixelcount_90th*pixel_area) 
+    
+    indo_df <- dplyr::select(indo_df, parcel_id, year, 
+                             lucfip_ha_30th,
+                             lucfip_ha_60th, 
+                             lucfip_ha_90th,
+                             lucfip_pixelcount_30th,
+                             lucfip_pixelcount_60th, 
+                             lucfip_pixelcount_90th,
+                             everything())
+    
+    
+    # ### Add categoric variable to distinguish parcels that experienced at least one lucpfip pixel event 
+    # indo_df <- merge(indo_df,
+    #                  ddply(indo_df, "parcel_id", summarize, 
+    #                        any_lucfip = sum(lucfip_ha_total, na.rm = TRUE) >0 ), 
+    #                  by = "parcel_id")
+    
+    
     saveRDS(indo_df, paste0("temp_data/processed_parcels/lucfip_panel_",PS/1000,"km_",CR/1000,"km_",sample,"_CR.rds"))
     
     rm(indo_df, df_list)

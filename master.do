@@ -266,13 +266,35 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 
 		* output: 
 		*		Main raster outputs 
-		*			temp_data/processed_lu/annual_maps/lucfip_ISLAND_TH_YEAR.tif for ISLAND = ("Sumatra, Kalimantan, Papua), TH = (30, 60, 90) and YEAR = (2001-2018)
-		*			temp_data/processed_lu/annual_maps/parcel_lucfip_ISLAND_PS_TH.tif for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, TH = (30, 60, 90) and YEAR = (2001-2018)
+		*			temp_data/processed_lu/annual_maps/lucfip_ISLAND_TH_YEAR.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua"), TH = (30th, 60th, 90th)and YEAR = (2001-2018)
+		*			temp_data/processed_lu/annual_maps/parcel_lucfip_ISLAND_PS_TH.tif for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, TH = (30th, 60th, 90th) and YEAR = (2001-2018)
 		
 		*		Dataframe outputs 
 		*			temp_data/processed_parcels/lucfip_panel_ISLAND_PS_CR_TH.rds for ISLAND = ("Sumatra, Kalimantan, Papua), PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR) TH = (30, 60, 90) and YEAR = (2001-2018)
 		*			temp_data/processed_parcels/lucfip_panel_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR) : each one has rows from three islands and columns for three forest definitions.  
 
+
+	*** prepare parcel maps and dataframes of baseline forest extents according to different definitions
+	rsource using "code/outcome_variables/prepare_2000_forest_extents.R"
+	* input: 	temp_data/processed_indonesia_spatial/island_sf
+	*			temp_data/processed_lu/gfc_data_Indonesia_TH.tif for TH = (30th, 60th, 90th)
+	*			temp_data/processed_lu/austin_ioppm_2000_ISLAND_aligned.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua")
+	*			temp_data/processed_lu/margono_primary_forest_ISLAND_aligned.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua")
+	*			temp_data/processed_mill_geolocalization/IBS_UML_cs.dta
+	*			input_data/uml/mills_20200129.xlsx
+
+	* output: 	temp_data/processed_lu/gfc_fc2000_ISLAND_TH.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") and TH = (30th, 60th, 90th)
+	*			temp_data/processed_lu/gfc_fc2000_ISLAND_TH_prj.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") and TH = (30th, 60th, 90th)
+	*			temp_data/processed_lu/gfc_fc2000_outside_ip_ISLAND_TH.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") and TH = (30th, 60th, 90th)
+	*			temp_data/processed_lu/margono_TYPE_primary_forest_ISLAND_aligned.tif for TYPE = c("intact", "degraded", "total") ISLAND = ("Sumatra", "Kalimantan", "Papua") 
+	*			temp_data/processed_lu/parcel_fc2000_ISLAND_30th_PS.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") and PS = 3km
+	*			temp_data/processed_lu/parcel_pfc2000_ISLAND_total_PS.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") and PS = 3km
+	*			temp_data/processed_lu/parcel_fc2000_ISLAND_30th_PS_SAMPLE_masked.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua"), PS = 3km and SAMPLE = (IBS, UML)
+	*			temp_data/processed_lu/parcel_pfc2000_ISLAND_total_PS_SAMPLE_masked.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua"), PS = 3km and SAMPLE = (IBS, UML)
+	*			temp_data/processed_lu/fc2000_cs_ISLAND_30th_PS_CR.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua"), PS = 3km and CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR)
+	*			temp_data/processed_lu/pfc2000_cs_ISLAND_total_PS_CR.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua"), PS = 3km and CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR)
+	* 		main output: 
+	*			temp_data/processed_parcels/baseline_fc_cs_PS_CR.rds for PS = 3km and CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR, 10km_UML_CR, 30km_UML_CR, 50km_UML_CR)
 
 	*** prepare emissions from LUCPFIP 
 		rsource using "code/outcome_variables/prepare_emissions.R"
@@ -290,6 +312,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 	However, in further RHS-related scripts, we always use parcels within IBS catchment radii, and hence do not specify it in file names.  
 	 */	
 
+	 * /!\ ~ 61 hours to execute 
 	rsource using "code/explicative_variables/wa_at_parcels.R"
 		* input   	temp_data/IBS_UML_panel_final.dta
 		*			temp_data/processed_parcels/lucpfip_panel_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
@@ -300,10 +323,15 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 
 	/* add information on the number of UML mills that are reachable from each parcel in each year within 10, 30 and 50km. 
 	  and on the share of IBS sample in this total number of reachable UML mills. 
+	  AND add island and district variables, and baseline forest extents variables computed in prepare_2000_forest_extents.R
 	  /!\ ~1h */
-	rsource using "code/explicative_variables/make_n_reachable_uml.R"	
+	rsource using "code/explicative_variables/add_parcel_variables.R"	
 		* input:	temp_data/processed_UML/UML_valentin_imputed_est_year.dta
 		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds  	 for PS = 3km, CR = (10CR, 30CR, 50CR)
+		*			temp_data/processed_indonesia_spatial/island_sf
+		*			input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp
+		*			temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta
+		*			temp_data/processed_parcels/baseline_fc_cs_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
 
 		*output: 	temp_data/processed_parcels/wa_panel_parcels_reachable_uml_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 		*			temp_data/processed_parcels/wa_panel_parcels_more_variables_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
@@ -342,7 +370,17 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		*				temp_data/processed_lu/gfc_fc2000_outside_ip_ISLAND_TH.tif
 		*				temp_data/processed_lu/margono_TYPE_primary_forest_ISLAND_aligned.tif	
 
-		*				LateX table codes. 
+		*				LateX forest extent 2000 and LUCFIP descriptive statistics table codes. 
+
+
+	*** Explicative variables
+	rsource using "code/descriptive_statistics/rhs_tables.R"
+	* input 	temp_data/IBS_UML_panel_final.dta
+	*			temp_data/panel_parcels_ip_final_PS_CR.rds for PS = 3km and CR = (10CR, 30CR, 50CR)
+
+	* output 	LateX IBS and grid cell descriptive statistics table codes 
+
+	rsource using "code/descriptive_statistics/rhs_figures.R"
 
 
 

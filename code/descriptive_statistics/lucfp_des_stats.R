@@ -784,6 +784,7 @@ kable(LU_stat_des, booktabs = T, align = "c",
 
 ##### Make figures #####
 
+# IBS
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
 ibs <- ibs[!is.na(ibs$lat),]
 ibs <- ibs[!duplicated(ibs$firm_id),]
@@ -794,7 +795,7 @@ ibs_prj <- st_transform(ibs, crs = indonesian_crs)
 ibs30 <- st_buffer(ibs_prj, dist = 30000)
 ibs30 <- st_union(ibs30)
 
-ibs30 <- st_intersection(x = ibs30, y = island_sf_prj)
+#ibs30 <- st_intersection(x = ibs30, y = island_sf_prj)
 
 # keep only the part of this total catchment area that is on our island of interest
 #ibs30 <- st_intersection(x = ibs30, y = island_sf_prj[island_sf_prj$shape_des == island,])
@@ -802,8 +803,23 @@ ibs30 <- st_intersection(x = ibs30, y = island_sf_prj)
 ibs30_lonlat <- st_transform(ibs30, crs = 4326)
 # (For raster we let leaflet do it) 
 
+# UML
+uml <- read_xlsx(file.path("input_data/uml/mills_20200129.xlsx"))
+uml$latitude <- as.numeric(uml$latitude)
+uml$longitude <- as.numeric(uml$longitude)
+uml$lat <- uml$latitude
+uml$lon <- uml$longitude
+uml <- st_as_sf(uml,	coords	=	c("longitude",	"latitude"), crs = 4326)
+uml <- st_geometry(uml)
+uml_prj <- st_transform(uml, crs = indonesian_crs)
 
-### LUCFIP 
+uml30 <- st_buffer(uml_prj, dist = 30000)
+uml30 <- st_union(uml30)
+#uml30 <- st_intersection(x = uml30, y = island_sf_prj)
+uml30_lonlat <- st_transform(uml30, crs = 4326)
+
+
+#### MAP LUCFIP ####
 prepare_accu_lucfp <- function(island){
   parcel_size <- 3000
   th <- 30
@@ -872,7 +888,7 @@ ibs30_lonlat%>%
   addLegend(colors = legend_colors, labels = label) 
             
 
-### LUCPFIP
+#### MAP LUCPFIP ####
 
 prepare_accu_lucpfip <- function(island){
   parcel_size <- 3000
@@ -899,47 +915,75 @@ accu_lucpfip_suma <- prepare_accu_lucpfip("Sumatra")
 accu_lucpfip_kali <- prepare_accu_lucpfip("Kalimantan")
 accu_lucpfip_papu <- prepare_accu_lucpfip("Papua")
 
+max_lucpfip <- max(accu_lucpfip_suma@data@max, 
+                   accu_lucpfip_kali@data@max, 
+                   accu_lucpfip_papu@data@max)
+
+# min is not 0 because we've turned 0s into NAs for transparence. 
+min_lucpfip <- min(accu_lucpfip_suma@data@min, 
+                   accu_lucpfip_kali@data@min, 
+                   accu_lucpfip_papu@data@min)
+
+dom <- c(getValues(accu_lucpfip_suma), getValues(accu_lucpfip_kali), getValues(accu_lucpfip_papu))
+
 # settings for lucpfip legend 
-bins <- seq(from = 0, to = 900, by = 300)
-cb <- colorBin("plasma", 
-               domain = bins, 
-               bins = bins, 
-               na.color = "transparent")
+# bins <- seq(from = 0, to = 900, by = 300)
+cb <- colorNumeric(palette = "plasma", 
+                   domain = dom, 
+                   #bins = bins, 
+                   na.color = "transparent")
 # "viridis", "magma", "inferno", or "plasma".
 # cb <- colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), values(accu_lucpfip_suma),
 #                     na.color = "transparent")
 
 # this does not do anything: 
-bin_labels <- c("0-300ha", "300-600ha", "600-900ha")
-bin_labels <- paste0("<div style='display: inline-block;height: ", 
-                     size, "px;margin-top: 4px;line-height: ", 
-                     size, "px;'>", bin_labels, "</div>")
+# bin_labels <- c("0-300ha", "300-600ha", "600-900ha")
+# bin_labels <- paste0("<div style='display: inline-block;height: ", 
+#                      size, "px;margin-top: 4px;line-height: ", 
+#                      size, "px;'>", bin_labels, "</div>")
 
-# settings for catchment radius legend
+# settings for catchment radius legend - IBS
 color <- "transparent"
-label <- "30km catchment <br/> radius of sample mills"
+label <- "30km catchment radius - IBS geo-localized mills"
+shape <- "circle"
+border <- "black"
+size <- 10
+
+shape <- gsub("circle", "50%", shape)
+legend_colors <- paste0(color, "; width:", size, "px; height:", size, "px; border:3px solid ", border, "; border-radius:", shape)
+
+# settings for catchment radius legend - UML
+color <- "transparent"
+label_uml <- "30km catchment radius - UML mills"
 shape <- "circle"
 border <- "red"
 size <- 10
 
 shape <- gsub("circle", "50%", shape)
-legend_colors <- paste0(color, "; width:", size, "px; height:", size, "px; border:3px solid ", border, "; border-radius:", shape)
+legend_colors_uml <- paste0(color, "; width:", size, "px; height:", size, "px; border:3px solid ", border, "; border-radius:", shape)
 
 # MAP
 ibs30_lonlat%>% 
   leaflet() %>% 
   addTiles()%>%
   addProviderTiles(providers$Esri.WorldImagery, group ="ESRI") %>%
-  addPolygons(opacity = 0.5, color = "red", weight = 2, fill = FALSE) %>%
+  addPolygons(opacity = 0.5, color = "red", weight = 2, fill = FALSE, 
+              data = uml30_lonlat) %>%
+  addPolygons(opacity = 1, color = "black", weight = 2, fill = FALSE) %>%
   addRasterImage(accu_lucpfip_suma, project = TRUE, colors = cb) %>% 
   addRasterImage(accu_lucpfip_kali, project = TRUE, colors = cb) %>% 
   addRasterImage(accu_lucpfip_papu, project = TRUE, colors = cb) %>% 
-  addLegend(pal = cb,  values = cb, opacity = 0.7,
-            labFormat = labelFormat(suffix = "ha"),
-            labels = bin_labels, # this lign does not do anything
-            title = "Accumulated LUCPFIP, <br/> 2001-2015 <br/> within 900ha parcels",
-            position = "topright") %>% 
-  addLegend(colors = legend_colors, labels = label) 
+  addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
+  addLegend(colors = legend_colors_uml, labels = label_uml, position = "bottomright") %>% 
+  addLegend(pal = cb,  values = dom, bins = 5, opacity = 0.7,
+            labFormat = labelFormat(suffix = " ha"),
+            #labels = bin_labels, # this lign does not do anything
+            title = "LUC from primary forest <br/> 
+            to industrial plantations <br/> 
+            within 900ha parcels <br/> 
+            2001-2015 accumulated",
+            position = "bottomright") 
+  
 
 
 

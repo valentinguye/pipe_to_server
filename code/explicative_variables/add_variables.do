@@ -68,11 +68,33 @@ drop if merge_uml_panel == 2
 drop merge_uml_panel
 order est_year_imp, after(est_year)
 
+
+
+***** SAVE *****
+sort firm_id year 
+
+
+
+* as for FFB, in_tot_ variable names are shortened. 
+rename in_tot_* in_* 
+
+
 save "temp_data/IBS_UML_panel_final.dta", replace 
 
+export excel firm_id year trase_code uml_id mill_name parent_co lat lon island_factor island_name district_name kec_name village_name ///
+min_year est_year est_year_imp startYear max_year active industry_code ///
+ffb_price_imp1 ffb_price_imp2 in_ton_ffb in_ton_ffb_imp1 in_ton_ffb_imp2 in_val_ffb in_val_ffb_imp1 in_val_ffb_imp2 ///
+in_cpo_price_imp1 in_cpo_price_imp2 in_ton_cpo in_ton_cpo_imp1 in_ton_cpo_imp2 in_val_cpo in_val_cpo_imp1 in_val_cpo_imp2 ///
+cpo_price_imp1 cpo_price_imp2 out_ton_cpo out_ton_cpo_imp1 out_ton_cpo_imp2 out_val_cpo out_val_cpo_imp1 out_val_cpo_imp2 prex_cpo prex_cpo_imp1 prex_cpo_imp2 out_cpo  ///
+pko_price_imp1 pko_price_imp2 out_ton_pko out_ton_pko_imp1 out_ton_pko_imp2 out_val_pko out_val_pko_imp1 out_val_pko_imp2 prex_pko prex_pko_imp1 prex_pko_imp2 out_pko ///
+out_ton_rpo out_ton_rpo_imp1 out_ton_rpo_imp2 out_val_rpo out_val_rpo_imp1 out_val_rpo_imp2 prex_rpo prex_rpo_imp1 prex_rpo_imp2 out_rpo ///
+out_ton_rpko out_ton_rpko_imp1 out_ton_rpko_imp2 out_val_rpko out_val_rpko_imp1 out_val_rpko_imp2 prex_rpko prex_rpko_imp1 prex_rpko_imp2 out_rpko ///
+using "temp_data/IBS_UML_panel_final_IOvar.xlsx", firstrow(variables) replace 
 
 
 
+
+***** MERGE TFP VARIABLES FROM SEBI *****
 
 
 

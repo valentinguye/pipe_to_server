@@ -1,6 +1,6 @@
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 # 
-#             EXPLICATIVE VARIABLE DESCRIPTIVE STATISTICS 
+#             EXPLICATIVE VARIABLE DESCRIPTIVE MAP FIGURES 
 # 
 #   input   - panel data frame of parcels with the information on number of reachable uml mills
 #           as outputted from make_n_reachable_uml.R
@@ -9,7 +9,7 @@
 #           - panel data frame of IBS 
 #           ---> temp_data/IBS_UML_panel_final.dta
 # 
-# 
+#   output  none automatically, but figures generated with this code were saved. 
 # 
 # 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
@@ -257,7 +257,7 @@ catchment_radius <- 30000
   
   # settings for catchment radius legend
   color <- "transparent"
-  label <- paste0(catchment_radius/1000,"km catchment <br/>radius of sample mills")
+  label <- paste0(catchment_radius/1000,"km catchment radius")
   shape <- "circle"
   border <- "black"
   size <- 10
@@ -274,20 +274,20 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_suma, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
+    addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
     addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = " USD/ton FFB"),
               #labels = bin_labels, # this lign does not do anything
               title = "Local FFB prices, <br/> 1998-2015 average",
-              position = "bottomright") %>% 
-    addLegend(colors = legend_colors, labels = label, position = "bottomright") 
-  
+              position = "bottomright") 
+
   
   #### MAP CPO PRICE ####
   displayed_var <- "tm_pcpo_imp1"
   # settings for lucfp legend 
   summary(time_mean[,displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
-  cb <- colorNumeric("BuPu", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
+  cb <- colorNumeric("YlOrRd", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
                      domain = time_mean[,displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
@@ -303,7 +303,7 @@ catchment_radius <- 30000
   
   # settings for catchment radius legend
   color <- "transparent"
-  label <- paste0(catchment_radius/1000,"km catchment <br/> radius of sample mills")
+  label <- paste0(catchment_radius/1000,"km catchment radius")
   shape <- "circle"
   border <- "black"
   size <- 10
@@ -320,13 +320,12 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_suma, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
+    addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
     addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = " USD/ton CPO"),
               #labels = bin_labels, # this lign does not do anything
               title = "Local CPO prices, <br/> 1998-2015 average",
-              position = "bottomright") %>% 
-    addLegend(colors = legend_colors, labels = label, position = "bottomright") 
-  
+              position = "bottomright") 
   
   
   #### MAP PCT OWN PUBLIC ####
@@ -350,7 +349,7 @@ catchment_radius <- 30000
   
   # settings for catchment radius legend
   color <- "transparent"
-  label <- paste0(catchment_radius/1000,"km catchment <br/> radius of sample mills")
+  label <- paste0(catchment_radius/1000,"km catchment radius")
   shape <- "circle"
   border <- "black"
   size <- 10
@@ -371,7 +370,7 @@ catchment_radius <- 30000
     addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = "%"),
               #labels = bin_labels, # this lign does not do anything
-              title = "Public mill ownership, <br/> 1998-2015 average",
+              title = "Central gvt. ownership, <br/> 1998-2015 average",
               position = "bottomright") 
     
  
@@ -397,7 +396,7 @@ catchment_radius <- 30000
   
   # settings for catchment radius legend
   color <- "transparent"
-  label <- paste0(catchment_radius/1000,"km catchment <br/> radius of sample mills")
+  label <- paste0(catchment_radius/1000,"km catchment radius")
   shape <- "circle"
   border <- "black"
   size <- 10
@@ -418,7 +417,7 @@ catchment_radius <- 30000
     addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = "%"),
               #labels = bin_labels, # this lign does not do anything
-              title = "Foreign mill ownership, <br/> 1998-2015 average",
+              title = "Foreign ownership, <br/> 1998-2015 average",
               position = "bottomright") 
   
   
@@ -443,7 +442,7 @@ catchment_radius <- 30000
   
   # settings for catchment radius legend
   color <- "transparent"
-  label <- paste0(catchment_radius/1000,"km catchment <br/> radius of sample mills")
+  label <- paste0(catchment_radius/1000,"km catchment radius")
   shape <- "circle"
   border <- "black"
   size <- 10
@@ -491,7 +490,7 @@ catchment_radius <- 30000
   
   # settings for catchment radius legend
   color <- "transparent"
-  label <- paste0(catchment_radius/1000,"km catchment <br/> radius of sample mills")
+  label <- paste0(catchment_radius/1000,"km catchment radius")
   shape <- "circle"
   border <- "black"
   size <- 10
@@ -537,7 +536,7 @@ catchment_radius <- 30000
   
   # settings for catchment radius legend
   color <- "transparent"
-  label <- paste0(catchment_radius/1000,"km catchment radius<br/>of IBS sample mills")
+  label <- paste0(catchment_radius/1000,"km catchment radius")
   shape <- "circle"
   border <- "black"
   size <- 10
@@ -558,7 +557,7 @@ catchment_radius <- 30000
     addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = "%"),
               #labels = bin_labels, # this lign does not do anything
-              title = "Share of IBS sample <br/> in all reachable mills <br/> 1998-2015 average",
+              title = "Share of sample in <br/> all reachable mills <br/> 1998-2015 average",
               position = "bottomright") 
 
   
