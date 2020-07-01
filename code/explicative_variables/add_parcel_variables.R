@@ -102,7 +102,9 @@ uml <- st_transform(uml, crs = indonesian_crs)
 
 # read the sample panel of IBS geolocalized mills
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
-ibs <- ibs[!is.na(ibs$lat),]
+# keep only hose that are geolocalized mills
+ibs <- ibs[ibs$analysis_sample==1,]
+
 length(unique(ibs$firm_id))
 class(ibs$year)
 ibs_cs <- lapply(years, FUN = function(x) ibs[ibs$year == x,]) 

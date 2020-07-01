@@ -60,59 +60,38 @@ count if est_year == 2004 & !mi(min_year)
 count if est_year == 2004 & min_year == 2004
 * 13
 count if est_year == 2004 & min_year < 2004
-* 100
+* 99
 
 /*  
 234 UML mills have an establishment year in 2004; Out of which, 199 are matched with IBS; out of which 13 appear "indeed" in IBS in 2004 for the first time, 
-100 appear before 2004, and 86 after 2004. 
+99 appear before 2004, and 86 after 2004. 
 
-183 mills have an establishment year that is questioned by their first year of appearance in IBS (min_year). 100 of these are mills with 
+183 mills have an establishment year that is questioned by their first year of appearance in IBS (min_year). 99 of these are mills with 
 establishment year in 2004. 
 */
 
 * we deem that the earliest year of est_year and min_year is the best approximation of the true establishment year.  
 replace est_year_imp = min_year if !mi(est_year_imp) & min_year < est_year_imp
 
-* this replaced the 100 est_year = 2004 cases, plus another 83 cases of mills appearing in IBS prior to UML est_year. 
+* this replaced the 99 est_year = 2004 cases, plus another 84 cases of mills appearing in IBS prior to UML est_year. 
 
 
 *** MILLS WITHOUT ESTABLISHMENT YEAR 
 count if mi(est_year) 
 * 337  
 count if mi(est_year) & !mi(min_year)
-* 84
+* 82
 count if mi(est_year) & !mi(min_year) & min_year ==2004
 * 4
 count if mi(est_year) & !mi(min_year) & min_year > 2004
-* 49
+* 47
 
 /* 
 So 337 UML mills don't have an est_year. We approximate their establishment years with the first years of appearance in IBS. 
-Out of 337 mills with missing establishment years, 84 can be approximated this way, of which 49 with a first year in IBS later than 2004, 4 in 2004
+Out of 337 mills with missing establishment years, 82 can be approximated this way, of which 47 with a first year in IBS later than 2004, 4 in 2004
 and 31 before 2004. 
 */
 
 replace est_year_imp = min_year if mi(est_year_imp) & !mi(min_year)
 
 save "temp_data/processed_UML/UML_valentin_imputed_est_year.dta", replace 
-
-
-
-/* 
-*** UPDATE EST_YEAR variable in IBS_UML DATA SETS. 
-use "$base_path_wd\build\input\IBS_UML_panel.dta", clear
-
-merge m:1 trase_code using "$base_path_wd\build\output\UML_valentin_imputed_est_year.dta", nogenerate keepusing(est_year_imp) 
-
-order est_year_imp, after(est_year)
-sort firm_id year 
-save "$base_path_wd\build\input\IBS_UML_panel_est_year.dta", replace */
-
-
-/*
-codebook firm_id if !mi(lat)
-codebook firm_id if !mi(trase_code)
-codebook firm_id if !mi(mill_name)
-*/
-
-

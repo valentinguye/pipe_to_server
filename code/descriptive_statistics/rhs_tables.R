@@ -26,12 +26,10 @@
 # see this project's README for a better understanding of how packages are handled in this project. 
 
 # These are the packages needed in this particular script. *** these are those that we now not install: "rlist","lwgeom","htmltools", "iterators", 
-# PB: on n'arrive pas à installed leaflet, kableExtra (qui n'est peut être pas nécessaire) et velox (qui n'est pas nécessaire)
-neededPackages = c("dplyr", "data.table",  "stringr", "sjmisc", 
+neededPackages = c("plyr", "dplyr", "data.table",  "stringr", "sjmisc", 
                    "foreign", "readxl", "readstata13", 
                    "raster", "rgdal",  "sp", "sf",
-                   "knitr", 
-                   "parallel", "foreach","doParallel")
+                   "knitr")
 # Install them in their project-specific versions
 renv::restore(packages = neededPackages)
 
@@ -48,11 +46,11 @@ lapply(neededPackages, library, character.only = TRUE)
 # 2. Write them in troublePackages below, uncomment, and run the following code chunk: 
 
 # # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
-troublePackages <- c("plyr", "kableExtra") 
+troublePackages <- c("kableExtra") 
 # Attempt to load packages from user's default libraries.
 lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
 
-# 3. If the troubling packages could not be loaded ("there is no package called ‘’") 
+# 3. If the troubling packages could not be loaded ("there is no package called ...") 
 #   you should try to install them, preferably in their versions stated in the renv.lock file. 
 #   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
@@ -71,25 +69,9 @@ indonesian_crs <- "+proj=cea +lon_0=115.0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +
 # all IBS oil palm related establishments. 
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
 
-# make indicator of our sample of interest (geo-referenced mills) 
-ibs$geo_sample <- !is.na(ibs$lat)
-
-# make indicator of being a mill 
-is_mill <- ddply(ibs, "firm_id", summarise, 
-                 is_mill = sum(out_ton_cpo, na.rm = TRUE) > 0 | 
-                           sum(out_val_cpo, na.rm = TRUE) > 0 | 
-                           sum(out_ton_pko, na.rm = TRUE) > 0 | 
-                           sum(out_val_pko, na.rm = TRUE) > 0 | 
-                           sum(in_ton_ffb, na.rm = TRUE) > 0 | 
-                           sum(in_val_ffb, na.rm = TRUE) > 0 )
-ibs <- merge(ibs, is_mill, by = "firm_id")
-rm(is_mill)
-# also, do not count mills that satisfy the above conditions but are in Java or Bali; 
-ibs[ibs$island_name == "Java" | ibs$island_name == "Bali Nusa Tenggara", "is_mill"] <- FALSE
-
-ibs$analysis_sample <- (ibs$geo_sample & ibs$is_mill)
 
 length(unique(ibs$firm_id))
+length(unique(ibs$firm_id[ibs$uml_matched_sample])) 
 length(unique(ibs$firm_id[ibs$is_mill])) 
 length(unique(ibs$firm_id[ibs$analysis_sample]))
 # ibs[ibs$geo_sample & !ibs$is_mill,1:40]
@@ -388,19 +370,6 @@ kable(des_table, booktabs = T, align = "c",
 # all IBS oil palm related establishments. 
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
 
-# make indicator of our sample of interest (geo-referenced mills) 
-ibs$geo_sample <- !is.na(ibs$lat)
-
-# make indicator of being a mill 
-is_mill <- ddply(ibs, "firm_id", summarise, 
-                 is_mill = sum(out_ton_cpo, na.rm = TRUE) > 0 | 
-                   sum(out_val_cpo, na.rm = TRUE) > 0 | 
-                   sum(out_ton_pko, na.rm = TRUE) > 0 | 
-                   sum(out_val_pko, na.rm = TRUE) > 0 | 
-                   sum(in_ton_ffb, na.rm = TRUE) > 0 | 
-                   sum(in_val_ffb, na.rm = TRUE) > 0 )
-ibs <- merge(ibs, is_mill, by = "firm_id")
-rm(is_mill)
 
 # UML 
 ##### PARCEL STAT DES ##### 
@@ -648,3 +617,30 @@ kable(des_table, booktabs = T, align = "c",
            threeparttable = TRUE, 
            escape = TRUE) 
 
+
+
+
+
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+# OLD CODE to flag different categories of establishments. Now this is done in merging_geolocalization_works.do
+
+# # make indicator of our sample of interest (geo-referenced mills) 
+# ibs$geo_sample <- !is.na(ibs$lat)
+# 
+# # make indicator of being a mill 
+# is_mill <- ddply(ibs, "firm_id", summarise, 
+#                  is_mill = ((sum(out_ton_cpo, na.rm = TRUE) > 0 | 
+#                             sum(out_val_cpo, na.rm = TRUE) > 0 | 
+#                             sum(out_ton_pko, na.rm = TRUE) > 0 | 
+#                             sum(out_val_pko, na.rm = TRUE) > 0 ) | 
+#                            (sum(in_ton_ffb, na.rm = TRUE) > 0 | 
+#                             sum(in_val_ffb, na.rm = TRUE) > 0 )))
+# ibs <- merge(ibs, is_mill, by = "firm_id")
+# rm(is_mill)
+# # also, do not count mills that satisfy the above conditions but are in Java or Bali; 
+# ibs[ibs$island_name == "Java" | ibs$island_name == "Bali Nusa Tenggara", "is_mill"] <- FALSE
+# 
+# ibs$analysis_sample <- (ibs$geo_sample & ibs$is_mill)

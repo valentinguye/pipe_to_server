@@ -3,7 +3,7 @@
 #             EXPLICATIVE VARIABLE DESCRIPTIVE MAP FIGURES 
 # 
 #   input   - panel data frame of parcels with the information on number of reachable uml mills
-#           as outputted from make_n_reachable_uml.R
+#           as outputted from add_parcel_variables.R
 #           ---> temp_data/processed_parcels/wa_panel_parcels_reachable_uml_PS_CR.rds
 # 
 #           - panel data frame of IBS 
@@ -27,8 +27,8 @@
 # see this project's README for a better understanding of how packages are handled in this project. 
 
 # These are the packages needed in this particular script. *** these are those that we now not install: "rlist","lwgeom","htmltools", "iterators", 
-# PB: on n'arrive pas à installed leaflet, kableExtra (qui n'est peut être pas nécessaire) et velox (qui n'est pas nécessaire)
-neededPackages = c("dplyr", "data.table",  "stringr", "sjmisc", 
+# PB: on n'arrive pas installed leaflet, kableExtra (qui n'est peut être pas nécessaire) et velox (qui n'est pas nécessaire)
+neededPackages = c("plyr", "dplyr", "data.table",  "stringr", "sjmisc", 
                    "foreign", "readxl", "readstata13", 
                    "raster", "rgdal",  "sp", "sf",
                    "knitr", 
@@ -49,11 +49,11 @@ lapply(neededPackages, library, character.only = TRUE)
 # 2. Write them in troublePackages below, uncomment, and run the following code chunk: 
 
 # # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
-troublePackages <- c("plyr", "leaflet", "leaflet.providers", "png")
+troublePackages <- c("leaflet", "leaflet.providers", "png")
 # Attempt to load packages from user's default libraries.
 lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
 
-# 3. If the troubling packages could not be loaded ("there is no package called ‘’") 
+# 3. If the troubling packages could not be loaded ("there is no package called ...") 
 #   you should try to install them, preferably in their versions stated in the renv.lock file. 
 #   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
@@ -105,9 +105,10 @@ catchment_radius <- 30000
 
   # Prepare catchment radii polygons 
   ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
-  ibs <- ibs[!is.na(ibs$lat),]
+  # keep only a cross section of those that are geolocalized mills
+  ibs <- ibs[ibs$analysis_sample==1,]
   ibs <- ibs[!duplicated(ibs$firm_id),]
-  
+
   ibs <- st_as_sf(ibs,	coords	=	c("lon",	"lat"), crs=4326)
   ibs <- st_geometry(ibs)
   ibs_prj <- st_transform(ibs, crs = indonesian_crs)

@@ -81,7 +81,7 @@ rename in_tot_* in_*
 
 save "temp_data/IBS_UML_panel_final.dta", replace 
 
-export excel firm_id year trase_code uml_id mill_name parent_co lat lon island_factor island_name district_name kec_name village_name ///
+export excel firm_id year uml_matched_sample geo_sample analysis_sample trase_code uml_id mill_name parent_co lat lon island_factor island_name district_name kec_name village_name ///
 min_year est_year est_year_imp startYear max_year active industry_code ///
 ffb_price_imp1 ffb_price_imp2 in_ton_ffb in_ton_ffb_imp1 in_ton_ffb_imp2 in_val_ffb in_val_ffb_imp1 in_val_ffb_imp2 ///
 in_cpo_price_imp1 in_cpo_price_imp2 in_ton_cpo in_ton_cpo_imp1 in_ton_cpo_imp2 in_val_cpo in_val_cpo_imp1 in_val_cpo_imp2 ///

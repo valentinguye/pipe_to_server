@@ -20,7 +20,7 @@
 #             ---> temp_data/processed_lu/austin_ioppm_2015_Papua_aligned.tif
 #      
 #             * Georeferenced mills (from georeferencing works)                                           
-#             ---> IBS_UML_cs.dta
+#             ---> IBS_UML_panel.dta
 #
 #   Main outputs:  panel dataframes of lucfip pixel-event count in parcels of a given size, from 2001 to 2018,  
 #                 for the whole Indonesia (Sumatra, Kalimantan, Papua "row-binded"), 
@@ -493,7 +493,10 @@ to_panel_within_CR <- function(island, parcel_size, catchment_radius){
     # Probably more efficient as the st_is_within does not need to be executed over all Indonesian cells but only those within the largest catchment_radius.
     
     # Make the mask
-    mills <- read.dta13(file.path("temp_data/processed_mill_geolocalization/IBS_UML_cs.dta"))
+    mills <- read.dta13(file.path("temp_data/processed_mill_geolocalization/IBS_UML_panel.dta"))
+    # keep only a cross section of those that are geolocalized mills, on island of interest
+    mills <- mills[mills$analysis_sample==1,]
+    mills <- mills[!duplicated(mills$firm_id),]
     mills <- mills[mills$island_name == island,]
     #turn into an sf object.
     mills <- st_as_sf(mills,	coords	=	c("lon",	"lat"), crs=4326)

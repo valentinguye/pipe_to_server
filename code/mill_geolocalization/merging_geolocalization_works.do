@@ -1005,6 +1005,59 @@ The only cases so far are the three mills that are not in UML.
 replace island_name = "Papua" if firm_id == 46510
 replace island_factor = 5 if island_factor == 4
 
+* I further checked that no firm has missing island_name while it has more precise (province, district, village) info) 
+
+
+*** Distinguish geolocalized IBS mills, mills, and the rest. 
+* at this stage, only mills matched with UML have coordinates
+gen uml_matched_sample = (!mi(lat))
+
+sort firm_id year
+global mill_commo out_ton_cpo out_val_cpo out_ton_pko out_val_pko in_ton_ffb in_val_ffb
+foreach var of varlist $mill_commo{
+	bys firm_id: egen sum_`var' = sum(`var')
+}
+
+* The criterion to be a mill is to have at least one record of producing CPO or PKO, either in quantity or in value AND one record of sourcing FFB. 
+* The AND condition removes 184 establishments from the is_mill sample with respect to the OR condition (producing either cpo or pko OR sourcing ffb)
+* In the subsample of 470 mills matched with UML, the difference between the AND and the OR conditions is only 11 mills 
+* (indicating that in IBS, almost all establishments credibly recognized as mills declare some FFB sourcing) 
+* However, we are not interested only in mills declaring buying FFB. We also want to look at potentially integrated plantation-mill systems
+* in which FFB is not traded, and the only output is CPO. 
+* Therefore, we use the OR condition. 
+
+gen is_mill = (((sum_out_ton_cpo >0 & !mi(sum_out_ton_cpo)) | ///
+			    (sum_out_val_cpo >0 & !mi(sum_out_val_cpo)) | ///
+			    (sum_out_ton_pko >0 & !mi(sum_out_ton_pko)) | ///
+			    (sum_out_val_pko >0 & !mi(sum_out_val_pko))) | ///
+			   ((sum_in_ton_ffb >0 & !mi(sum_in_ton_ffb)) | ///
+			    (sum_in_val_ffb >0 & !mi(sum_in_val_ffb)))) 
+* also, do not count mills that satisfy the above conditions but are in Java or Bali; 
+replace is_mill = 0 if island_name == "Java" | island_name == "Bali Nusa Tenggara" 
+
+* Of the 470 geolocalized mills, 2 have only missing info, 7 have missing FFB info, and 2 are in Java. 
+
+* Now, add the village centroid coordinates.
+
+merge m:1 firm_id using "temp_data/processed_mill_geolocalization/IBSmills_desacentro.dta", generate(merge_desa_centro) update
+* nonmissing conflicts are those that have true coordinates 
+* missing updated are those that have not been geo-localized through UML matching, and are now approximately geo-localized with their village centroids
+* not matched from using come from the fact that some firm_id have been removed above in this script. We do not want to reintroduce them
+drop if merge_desa_centro == 2
+
+* round these new coordinates too
+replace lat = round(lat, 0.001) if merge_desa_centro == 4
+replace lon = round(lon, 0.001) if merge_desa_centro == 4
+
+gen geo_sample = (!mi(lat))
+
+gen analysis_sample = (geo_sample == 1 & is_mill == 1)
+
+*codebook firm_id if analysis_sample == 1
+* Now 587 establishments are identified as palm oil mills and are geo-localized. 466 precisely through matching with UML, and 121 with their valid, most recent, village centroids  
+
+
+
 ** remake min_year variables (to update for firm_id changes)
 bys firm_id: egen minmin_year = min(min_year)
 drop min_year 
@@ -1034,7 +1087,7 @@ order village_name, after(kec_name)
 
 * save a panel complete version 
 sort firm_id year 
-save "temp_data/processed_mill_geolocalization/IBS_UML_panel.dta", replace
+save "temp_data/processed_mill_geolocalization/IBS_geo_panel.dta", replace
 
 
 
@@ -1043,10 +1096,11 @@ save "temp_data/processed_mill_geolocalization/IBS_UML_panel.dta", replace
 
 
 codebook firm_id if !mi(lat)
+codebook firm_id if !mi(uml_matched_sample)
 codebook firm_id if !mi(trase_code)
 codebook firm_id if !mi(mill_name)
 
-export excel firm_id year trase_code uml_id mill_name parent_co lat lon district_name kec_name village_name /// 
+export excel firm_id year uml_matched_sample is_mill geo_sample analysis_sample trase_code uml_id mill_name parent_co lat lon district_name kec_name village_name /// 
 min_year est_year startYear max_year active industry_code ///
 ffb_price_imp1 ffb_price_imp2 in_ton_ffb in_ton_ffb_imp1 in_ton_ffb_imp2 in_val_ffb in_val_ffb_imp1 in_val_ffb_imp2 flag_multiinput_ffb ///
 in_dom_cpo_price_imp1 in_dom_cpo_price_imp2 in_dom_ton_cpo in_dom_ton_cpo_imp1 in_dom_ton_cpo_imp2 in_dom_val_cpo in_dom_val_cpo_imp1 in_dom_val_cpo_imp2 ///
@@ -1059,9 +1113,9 @@ out_ton_rpko out_ton_rpko_imp1 out_ton_rpko_imp2 out_val_rpko out_val_rpko_imp1 
 EKSPOR export_pct export_pct_imp revenue_total pct_own_cent_gov_imp pct_own_loc_gov_imp pct_own_nat_priv_imp pct_own_for_imp workers_total_imp3 ///
 using "temp_data/processed_mill_geolocalization/IBS_UML_panel.xlsx", firstrow(variables) replace 
 
-* save a cross-sectional selected version 
-keep if !mi(lat)
-keep firm_id year trase_code uml_id mill_name parent_co lat lon island_factor island_name district_name kec_name village_name /// 
+* save a cross-sectional selected version of only matched ibs-uml mills
+keep if uml_matched_sample == 1
+keep firm_id year is_mill trase_code uml_id mill_name parent_co lat lon island_factor island_name district_name kec_name village_name /// 
 min_year est_year startYear max_year active industry_code ///
 avg_in_tot_ton_cpo_imp2 last_in_tot_ton_cpo_imp2 avg_in_ton_ffb_imp2 last_in_ton_ffb_imp2 avg_ffb_price_imp2 ///
 avg_out_ton_cpo_imp2 last_out_ton_cpo_imp2 avg_cpo_price_imp1 avg_cpo_price_imp2
@@ -1079,5 +1133,5 @@ export_pct export_pct_imp revenue_total pct_own_cent_gov_imp pct_own_loc_gov_imp
  ffb_price_imp1 ffb_price_imp2 in_ton_ffb in_ton_ffb_imp1 in_ton_ffb_imp2 in_val_ffb in_val_ffb_imp1 in_val_ffb_imp2 ///
  cpo_price_imp1 cpo_price_imp2 out_ton_cpo out_ton_cpo_imp1 out_ton_cpo_imp2 out_val_cpo out_val_cpo_imp1 out_val_cpo_imp2 prex_cpo prex_cpo_imp1 prex_cpo_imp2 ///
  pko_price_imp1 pko_price_imp2 out_ton_pko out_ton_pko_imp1 out_ton_pko_imp2 out_val_pko out_val_pko_imp1 out_val_pko_imp2 prex_pko prex_pko_imp1 prex_pko_imp2 ///
- if !mi(mill_name) & mi(lat)
+ if !mi(mill_name) & mi(uml_matched_sample)
 */

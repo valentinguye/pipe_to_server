@@ -94,7 +94,7 @@ years <- seq(from = 1998, to = 2015, by = 1)
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))  
 
 # keep only geolocalized mills
-ibs <- ibs[!is.na(ibs$lat),]
+ibs <- ibs[ibs$analysis_sample == 1,]
 length(unique(ibs$firm_id))
 
 # keep only the variables that identify mills and those which we want to distribute over parcels. 

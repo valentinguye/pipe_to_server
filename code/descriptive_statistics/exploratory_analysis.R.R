@@ -35,7 +35,7 @@ lapply(neededPackages, library, character.only = TRUE)
 # # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
 troublePackages <- c("plyr",  
                      "tidyr", "dplyr", "ggplot2", "corrplot", "lfe", "multiwayvcov", "lmtest", "stargazer", "scales", "shiny", "DT", "openssl", "tictoc", "shinycssloaders", "kableExtra", "rio", "zip", "rlang", 
-                     "ExPanDaR")
+                     "ExPanDaR", "packrat", "rsconnect")
 # Attempt to load packages from user's default libraries.
 lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
 
@@ -56,12 +56,22 @@ indonesian_crs <- "+proj=cea +lon_0=115.0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
 ##### IBS ####  
-
+ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
 any(duplicated(ibs[,c("firm_id", "year")]))
+
+
+# LOG PRICES
+ibs <- dplyr::mutate(ibs, 
+                     ln_ffb_price_imp1 = log(ffb_price_imp1),
+                     ln_ffb_price_imp2 = log(ffb_price_imp2),
+                     ln_cpo_price_imp1 = log(cpo_price_imp1),
+                     ln_cpo_price_imp2 = log(cpo_price_imp2),
+                     ln_pko_price_imp1 = log(pko_price_imp1),
+                     ln_pko_price_imp2 = log(pko_price_imp2))
 
 # pre-select variables before exploring the dataset with ExPanD 
 # (this is the same set as the one selected in wa_at_parcels.R + geo_sample and is_mill + geographic variables)
-ibs <- ibs[, c("firm_id", "year", "is_mill", "geo_sample", 
+ibs <- ibs[, c("firm_id", "year", "is_mill", "geo_sample", "analysis_sample",
                "trase_code", "uml_id", "mill_name", "parent_co", "lat", "lon",
                "island_name", "district_name", "kec_name", "village_name", 
                "min_year","est_year", "est_year_imp", "max_year", 
@@ -73,7 +83,8 @@ ibs <- ibs[, c("firm_id", "year", "is_mill", "geo_sample",
                "export_pct_imp", "revenue_total", "workers_total_imp3",
                "pct_own_cent_gov_imp", "pct_own_loc_gov_imp", "pct_own_nat_priv_imp", "pct_own_for_imp", 
                "iv2_imp1", "iv2_imp2", "iv3_imp1", "iv3_imp2", "iv4_imp1", "iv4_imp2", 
-               "concentration_10", "concentration_30", "concentration_50")]
+               "concentration_10", "concentration_30", "concentration_50",
+               "ln_ffb_price_imp1", "ln_ffb_price_imp2","ln_cpo_price_imp1", "ln_cpo_price_imp2","ln_pko_price_imp1", "ln_pko_price_imp2")]
 ExPanD(df = ibs, cs_id = "firm_id", ts_id = "year")
 
 

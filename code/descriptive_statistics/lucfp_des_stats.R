@@ -130,7 +130,11 @@ island_sf_prj <- st_transform(island_sf, crs = indonesian_crs)
   uml_prj <- st_transform(uml, crs = indonesian_crs)
   
   ## Prepare IBS mills
-  ibs <- read.dta13(file.path("temp_data/processed_mill_geolocalization/IBS_UML_cs.dta"))
+  ibs <- read.dta13(file.path("temp_data/processed_mill_geolocalization/IBS_UML_panel.dta"))
+  # keep only a cross section of those that are geolocalized mills
+  ibs <- ibs[ibs$analysis_sample==1,]
+  ibs <- ibs[!duplicated(ibs$firm_id),]
+  
   ibs <- st_as_sf(ibs,	coords	=	c("lon",	"lat"), crs=4326)
   ibs <- st_geometry(ibs)
   ibs_prj <- st_transform(ibs, crs = indonesian_crs)
@@ -786,7 +790,7 @@ kable(LU_stat_des, booktabs = T, align = "c",
 
 # IBS
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
-ibs <- ibs[!is.na(ibs$lat),]
+ibs <- ibs[ibs$analysis_sample == 1,]
 ibs <- ibs[!duplicated(ibs$firm_id),]
 
 ibs <- st_as_sf(ibs,	coords	=	c("lon",	"lat"), crs=4326)

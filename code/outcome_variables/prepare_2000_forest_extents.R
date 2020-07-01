@@ -24,7 +24,7 @@
 #           ---> margono_total_primary_forest_Sumatra_aligned.tif and also for Kalimantan and Papua
 #
 #          - IBS and UML dataframes 
-#           ---> temp_data/processed_mill_geolocalization/IBS_UML_cs.dta (from merging_geolocalization_works.do)
+#           ---> temp_data/processed_mill_geolocalization/IBS_UML_panel.dta (from merging_geolocalization_works.do)
 #           ---> input_data/uml/mills_20200129.xlsx
 # 
 #   Main Output: 
@@ -369,7 +369,10 @@ to_panel_within_CR <- function(island, parcel_size, catchment_radius){
     # Probably more efficient as the st_is_within does not need to be executed over all Indonesian cells but only those within the largest catchment_radius.
     
     # Make the mask
-    mills <- read.dta13(file.path("temp_data/processed_mill_geolocalization/IBS_UML_cs.dta"))
+    mills <- read.dta13(file.path("temp_data/processed_mill_geolocalization/IBS_UML_panel.dta"))
+    # keep only a cross section of those that are geolocalized mills, on island of interest
+    mills <- mills[mills$analysis_sample==1,]
+    mills <- mills[!duplicated(mills$firm_id),]
     mills <- mills[mills$island_name == island,]
     #turn into an sf object.
     mills <- st_as_sf(mills,	coords	=	c("lon",	"lat"), crs=4326)

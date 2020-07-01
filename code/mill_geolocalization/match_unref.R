@@ -1,7 +1,7 @@
 # SO, what we wanna do here contributes to the effort of georeferencing IBS mills. 
 # More specifically; we want to georeference those mills that have an a priori valid desa_id
 # but no referenced (UML) mill is within the associated village polygons.
-# In many cases, the IBS observation is actually not a mill but rather a refinery or an other factory using some CPO in its inpputs. 
+# In many cases, the IBS observation is actually not a mill but rather a refinery or an other factory using some CPO in its inputs. 
 # There are still cases where these observations are mills. They are then either 
 # - UML mills actually laying slightly outside the polygon they reported in IBS. 
 # - Not UML mills. 

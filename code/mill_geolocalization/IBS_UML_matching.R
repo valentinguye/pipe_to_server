@@ -52,10 +52,12 @@ ibs <- readRDS(file.path("temp_data/processed_mill_geolocalization/IBSmills_desa
 indonesian_crs <- "+proj=cea +lon_0=115.0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 #indonesian_crs <- 4326
 #prepare the sfc of ibs mills and their most recently known villages. 
-ibs <- filter(ibs, is.na(geom)== F)   
 ibs_na <- filter(ibs, is.na(geom))
-ibs <- st_as_sf(ibs, crs = indonesian_crs)
+ibs <- filter(ibs, is.na(geom)== F)   
+
+ibs <- st_as_sf(ibs, crs = 4326)
 ibs <- st_transform(ibs, crs = indonesian_crs)
+
 
 # prepare UML dataset
 uml <- dplyr::select(uml, trase_code, parent_co, mill_name, est_year, latitude, longitude)
@@ -63,7 +65,7 @@ uml$latitude <- as.numeric(uml$latitude)
 uml$longitude <- as.numeric(uml$longitude)
 uml$lat <- uml$latitude
 uml$lon <- uml$longitude
-uml <- st_as_sf(uml,	coords	=	c("longitude",	"latitude"), crs = indonesian_crs)
+uml <- st_as_sf(uml,	coords	=	c("longitude",	"latitude"), crs = 4326)
 uml <- st_transform(uml, crs = indonesian_crs)
 
 
@@ -154,7 +156,6 @@ write.dta(ibs_na, "temp_data/processed_mill_geolocalization/pre2011_bad_desa_id.
 
 ### Those that have a desa polygon but match with no uml mills (592) out_ton_cpo_imp2, district_name, village_name,
 ibs_unref$desa_id <- as.character(ibs_unref$desa_id)
-st_crs(ibs_unref) <- 4326 
 ibs_unref <- st_transform(ibs_unref, crs = 4326)
 
 ## For R 

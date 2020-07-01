@@ -38,14 +38,7 @@ ssc install rsource, replace
 
 ** R Packages
 rsource using "install_R_project_packages.R"
-* see README and/or comments in this script for more info
-
-
-/* 
-*INRA 
-global base_path_wd "C:/Users/GUYE/Desktop/opalval"
-*MCC
-global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
+* see the project README and/or comments within the script for more info
 
 
 ***** PREPARE DATA ***** 
@@ -108,6 +101,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		* 		 input_data/indonesia_spatial/village_shapefiles/desa_map_2010/indo_by_desa_2010.shp
 		
 		* output: temp_data/processed_mill_geolocalization/IBSmills_desageom.Rdata
+		*		  temp_data/processed_mill_geolocalization/IBSmills_desacentro.dta
 
 		** perform spatial matching and output distinct subsets that will need different processing
 		rsource using "code/mill_geolocalization/IBS_UML_matching.R"
@@ -173,6 +167,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		*		 input_data/uml/mills_20200129.xlsx
 		*		 input_data/manually_matched_ibs_uml/matching_unref/md_millMatching_modified.xlsx
 		* 		 input_data/manually_matched_ibs_uml/overall_btw_conflicts_done.xlsx
+		*		 temp_data/processed_mill_geolocalization/IBSmills_desacentro.dta
 
 
 		* output: temp_data/processed_mill_geolocalization/mills_to_georeference_post2010_done.dta 	 
@@ -200,7 +195,8 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 	* output 	temp_data/processed_UML/mills_estyear_clean_modified.dta
 	*			temp_data/processed_UML/UML_valentin_imputed_est_year.dta
 
-	** compute concentration variable 
+	** Compute concentration variable for all UML mills. 
+
 
 	* /!\ 10:40 hours to be executed.
 	rsource using "code/explicative_variables/mill_concentration.R"
@@ -241,7 +237,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		* input:	temp_data/processed_indonesia_spatial/island_sf
 		* 			input_data/austin_plantation_maps/IIASA_indo_oilpalm_map/oilpalm_2015_WGS1984.tif
 		*			input_data/margono_primary_forest/timeseq_change00_12.tif
-		*			temp_data/processed_mill_geolocalization/IBS_UML_cs.dta
+		*			temp_data/processed_mill_geolocalization/IBS_UML_panel.dta
 
 		* output: 
 		*		Main raster outputs 
@@ -262,7 +258,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 		*			temp_data/processed_lu/austin_ioppm_2015_Sumatra_aligned.tif
 		*			temp_data/processed_lu/austin_ioppm_2015_Kalimantan_aligned.tif
 		*			temp_data/processed_lu/austin_ioppm_2015_Papua_aligned.tif
-		*			temp_data/processed_mill_geolocalization/IBS_UML_cs.dta
+		*			temp_data/processed_mill_geolocalization/IBS_UML_panel.dta
 
 		* output: 
 		*		Main raster outputs 
@@ -280,7 +276,7 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 	*			temp_data/processed_lu/gfc_data_Indonesia_TH.tif for TH = (30th, 60th, 90th)
 	*			temp_data/processed_lu/austin_ioppm_2000_ISLAND_aligned.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua")
 	*			temp_data/processed_lu/margono_primary_forest_ISLAND_aligned.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua")
-	*			temp_data/processed_mill_geolocalization/IBS_UML_cs.dta
+	*			temp_data/processed_mill_geolocalization/IBS_UML_panel.dta
 	*			input_data/uml/mills_20200129.xlsx
 
 	* output: 	temp_data/processed_lu/gfc_fc2000_ISLAND_TH.tif for ISLAND = ("Sumatra", "Kalimantan", "Papua") and TH = (30th, 60th, 90th)
@@ -353,7 +349,9 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 
 	*** Outcome variables
 	rsource using "code/descriptive_statistics/lucfp_des_stats.R"
-		* input 	temp_data/processed_lu/gfc_data_Indonesia_30th.tif, gfc_data_Indonesia_60th.tif, gfc_data_Indonesia_90th.tif 
+		* input 	temp_data/processed_mill_geolocalization/IBS_UML_panel.dta
+		*			input_data/uml/mills_20200129.xlsx
+		*			temp_data/processed_lu/gfc_data_Indonesia_30th.tif, gfc_data_Indonesia_60th.tif, gfc_data_Indonesia_90th.tif 
 		*			temp_data/processed_lu/austin_ioppm_2000_",island,"_aligned.tif
 		*			temp_data/processed_lu/margono_primary_forest_island_aligned.tif
 
@@ -380,8 +378,11 @@ global base_path_wd "C:/Users/guyv/ownCloud/opalval" */
 
 	* output 	LateX IBS and grid cell descriptive statistics table codes 
 
-	rsource using "code/descriptive_statistics/rhs_figures.R"
+	rsource using "code/descriptive_statistics/rhs_maps.R"
+	* input 	temp_data/processed_parcels/wa_panel_parcels_reachable_uml_PS_CR.rds for PS = 3km and CR = (10CR, 30CR, 50CR)
+	*			temp_data/IBS_UML_panel_final.dta
 
+	* output 	outputs/figures/ 		(for exemple accu_lucpfip, tm_n_reachable_uml, tm_cpo_price_imp1 ... ) 
 
 
 

@@ -11,33 +11,54 @@
 #             --> indo_by_desa_2010.shp                              #
 #                                                                    #
 #                                                                    #
-#   Output: IBS mill with the smallest desa geometry possible        #
+#   Output: - IBS mill with the smallest desa geometry possible      #
+#             (for further UML matching works)                       #
 #           --> IBSmills_desageom.Rdata                              #
+#
+#           - IBS mills with smallest desa geometry's centroid
+#             (for those that could not be matched)
+#           --> IBSmills_desacentro.dta                             
 #   
 ######################################################################
 ######################################################################
 
-#### WORKING DIRECTORY SHOULD BE CORRECT IF THIS SCRIPT IS RUN WITHIN R_project_for_individual_runs
-#### OR CALLED FROM LUCFP PROJECT master.do FILE.
-#### IN ANY CASE IT SHOULD BE (~/LUCFP/data_processing) 
+##### 0. PACKAGES, WD, OBJECTS #####
 
 
-# LOAD OR INSTALL NECESSARY PACKAGES
-# List all packages needed for session
+### WORKING DIRECTORY SHOULD BE CORRECT IF THIS SCRIPT IS RUN WITHIN R_project_for_individual_runs
+### OR CALLED FROM LUCFP PROJECT master.do FILE.
+### IN ANY CASE IT SHOULD BE (~/LUCFP/data_processing) 
+
+
+### PACKAGES ###
+# see this project's README for a better understanding of how packages are handled in this project. 
+
+# These are the packages needed in this particular script. 
 neededPackages = c("dplyr", "readxl", "foreign", "readstata13",
                    "sf", "rgdal")
+# Install them in their project-specific versions
+renv::restore(packages = neededPackages)
 
-allPackages    = c(neededPackages %in% installed.packages()[ , "Package"])
-
-# Install packages (if not already installed)
-if(!all(allPackages)) {
-  missingIDX = which(allPackages == FALSE)
-  needed     = neededPackages[missingIDX]
-  lapply(needed, install.packages)
-}
-
-# Load all defined packages
+# Load them 
 lapply(neededPackages, library, character.only = TRUE)
+
+# /!\/!\ IF renv::restore(neededPackages) FAILS TO INSTALL SOME PACKAGES /!\/!\ 
+
+# For instance sf could cause trouble https://github.com/r-spatial/sf/issues/921 
+# or magick, as a dependency of raster and rgdal. 
+
+# FOLLOW THESE STEPS:
+# 1. Remove these package names from neededPackages above, and rerun renv::restore(packages = neededPackages)
+# 2. Write them in troublePackages below, uncomment, and run the following code chunk: 
+
+# # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
+# troublePackages <- c("")
+# # Attempt to load packages from user's default libraries. 
+# lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
+
+# 3. If the troubling packages could not be loaded ("there is no package called ‘’") 
+#   you should try to install them, preferably in their versions stated in the renv.lock file. 
+#   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
 
 #######################################################################
@@ -122,4 +143,23 @@ for(i in mills_t$firm_id){
 # different areas in other years.
 
 saveRDS(ibs_desa, file = "temp_data/processed_mill_geolocalization/IBSmills_desageom.Rdata")
- 
+
+### all those with a desa geometry, we attribute them desa centroid coordinates
+ibs_desa_sf <- st_as_sf(ibs_desa[!is.na(ibs_desa$geom),])
+# Accounting for the likelihood that a mill may also be not in the largest polygon, we set the option to FALSE
+ibs_desa_centro <- st_centroid(ibs_desa_sf, of_largest_polygon = FALSE)
+
+# of_largest_polygon option does not change much, as multi parts are not very far from each others. 
+# ibs_desa_centro2 <- st_centroid(ibs_desa_sf, of_largest_polygon = TRUE)
+# diff_centro_poly <- ibs_desa_sf[ibs_desa_centro$geom != ibs_desa_centro2$geom,]
+# diff_centro <- st_centroid(diff_centro_poly, of_largest_polygon = FALSE)
+# diff_centro2 <- st_centroid(diff_centro_poly, of_largest_polygon = TRUE)
+# plot(diff_centro_poly$geom[4])
+# plot(diff_centro1$geom, add = TRUE, col = "green")
+# plot(diff_centro2$geom, add = TRUE, col = "red")
+
+ibs_desa_centro1 <- cbind(ibs_desa_centro$firm_id, st_coordinates(ibs_desa_centro)) 
+colnames(ibs_desa_centro1) <- c("firm_id", "lon", "lat")
+ibs_desa_centro1 <- as.data.frame(ibs_desa_centro1)
+
+write.dta(ibs_desa_centro1, "temp_data/processed_mill_geolocalization/IBSmills_desacentro.dta")

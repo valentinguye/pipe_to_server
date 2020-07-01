@@ -1,7 +1,9 @@
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+# THIS SCRIPT installs (with renv::restore()) project-wide necessary packages. 
+# it is called in master.do, but it can (and not must) also be executed separately, before individual R runs.
 
 # This project's data processing reproducibility is based on package version tracking enabled 
-# by the package renv. 
+# by the package {renv}. 
 
 # This is how it works, briefly, in this project. More info at https://rstudio.github.io/renv/articles/renv.html
 
@@ -18,9 +20,6 @@
 # Then, upon renv::restore() command, packages recorded in renv.lock are installed in renv/library, if necessary 
 # (i.e. if not available from the renv cache, see https://rstudio.github.io/renv/articles/renv.html#cache-1 ) 
 
-# THIS SCRIPT installs (with renv::restore()) project-wide necessary packages. 
-# it is called in master.do, but it can (and not must) also be executed separately, before individual R runs. 
-
 # Note that each of this project's R scripts installs the packages it requires, whether the present
 # script has been already executed or not. 
 
@@ -29,9 +28,9 @@
 # Specify project-wide packages to install
 neededPackages <- c("data.table", "dplyr", "plyr", "Hmisc", "sjmisc", "stringr",
                     "readstata13", "foreign", "readxl", "writexl",
-                    "raster", "rgdal", "sp", "sf","gfcanalysis", "velox",
+                    "raster", "rgdal", "sp", "sf","gfcanalysis",
                     "doParallel", "foreach", "parallel", "snow", 
-                     "knitr", "leaflet")
+                    "knitr")
 
 # Note that from ?renv::restore 
 # "Any required recursive dependencies of the requested packages will be restored as well."
@@ -58,7 +57,7 @@ renv::restore(packages = neededPackages)
 # # object_default libraries was saved in .Rprofile before renv was activated
 # lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
 
-# 3. If the troubling packages could not be loaded ("there is no package called ‘’") 
+# 3. If the troubling packages could not be loaded ("there is no package called ...") 
 #   you should try to install them, preferably in their versions stated in the renv.lock file. 
 #   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
@@ -79,6 +78,7 @@ renv::restore(packages = neededPackages)
 if(FALSE){
   # NOT RUN
   library(data.table)
+  library(plyr)
   library(dplyr)
   library(plyr)
   library(Hmisc)
@@ -99,16 +99,15 @@ if(FALSE){
   library(snow)
   #library(kableExtra)
   library(knitr)
-  library(leaflet)
-  library(velox)
-  library(plyr)
-  library(ExPanDaR)
+  #library(leaflet)
+  #library(velox)
+  #library(ExPanDaR)
   
 }
 
 # If new packages are needed along the project data processing workflow, one should: 
 # 1. install the packages in a user local default library (you may have to chose explicitly which, hence the brackets after default_libraries)
-install.packages("ExPanDaR", lib = default_libraries[1])
+install.packages("package", lib = default_libraries[1])
 # 2. add 'library(package)' in the list above, and ',"package"' in the neededPackages vector above.
 # 3. perform an implicit (the default) snapshot, that writes to the renv.lock file the packages at
 # the intersection between packages found in the project by renv::dependencies() 
