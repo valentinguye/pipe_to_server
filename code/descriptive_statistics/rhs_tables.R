@@ -64,16 +64,18 @@ lapply(troublePackages, library, lib.loc = default_libraries, character.only = T
 #   which we center at Indonesian longitude with lat_ts = 0 and lon_0 = 115.0
 indonesian_crs <- "+proj=cea +lon_0=115.0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 
+### PARCEL SIZE ###
+parcel_size <- 3000
+
 
 ##### IBS MILL PANEL STAT DES ##### 
 # all IBS oil palm related establishments. 
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
 
-
 length(unique(ibs$firm_id))
-length(unique(ibs$firm_id[ibs$uml_matched_sample])) 
-length(unique(ibs$firm_id[ibs$is_mill])) 
-length(unique(ibs$firm_id[ibs$analysis_sample]))
+length(unique(ibs$firm_id[ibs$uml_matched_sample==1])) 
+length(unique(ibs$firm_id[ibs$is_mill==1])) 
+length(unique(ibs$firm_id[ibs$analysis_sample==1]))
 # ibs[ibs$geo_sample & !ibs$is_mill,1:40]
 # out of 1473 establishments initially extracted from IBS,
 # 1004 are involved at least one year in some FFB processing or CPO or PKO producing, but 930 are not in Java nor Bali 
@@ -238,7 +240,7 @@ kable(des_table, booktabs = T, align = "c",
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Geo-localized IBS palm oil mills \n n = 466 mills" = 3,
+                     "Geo-localized IBS palm oil mills \n n = 587 mills" = 3,
                      "All IBS palm oil mills \n n = 930 mills" = 3, 
                      "t-test" = 1,
                      "KS test" = 1),
@@ -280,7 +282,7 @@ kable(des_table, booktabs = T, align = "c",
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Geo-localized IBS palm oil mills \n n = 367 mills" = 3,
+                     "Geo-localized IBS palm oil mills \n n = 464 mills" = 3,
                      "All IBS palm oil mills \n n = 677 mills" = 3, 
                      "t-test" = 1, 
                      "KS test" =1),
@@ -316,7 +318,7 @@ kable(des_table, booktabs = T, align = "c",
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Geo-localized IBS palm oil mills \n n = 83 mills" = 3,
+                     "Geo-localized IBS palm oil mills \n n = 98 mills" = 3,
                      "All IBS palm oil mills \n n = 200 mills" = 3, 
                      "t-test"=1, 
                      "KS test" = 1),
@@ -352,7 +354,7 @@ kable(des_table, booktabs = T, align = "c",
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Geo-localized IBS palm oil mills \n n = 16 mills" = 3,
+                     "Geo-localized IBS palm oil mills \n n = 25 mills" = 3,
                      "All IBS palm oil mills \n n = 53 mills" = 3, 
                      "t-test" = 1,
                      "KS test" = 1),
@@ -380,11 +382,9 @@ ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
 
 
 
-
 make_des_table_parcels_island <- function(island){
   
   CR_list <- list()  
-  parcel_size <- 3000
   catchment_radiuseS <- c(1e4, 3e4, 5e4)
   
   for(catchment_radius in catchment_radiuseS){
@@ -395,6 +395,7 @@ make_des_table_parcels_island <- function(island){
     
     # filter parcels to island
     parcels_isl <- parcels[parcels$island %in% island,]
+    rm(parcels)
     # filter parcels to primary forested
     parcels_isl <- parcels_isl[parcels_isl$any_fc2000_30th,]
   
@@ -405,9 +406,9 @@ make_des_table_parcels_island <- function(island){
                  "wa_cpo_price_imp1", 
                  "wa_pko_price_imp1",
                  "wa_pct_own_cent_gov_imp", "wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                 paste0("wa_concentration_",catchment_radius/1000), 
-                 paste0("n_reachable_uml_",catchment_radius/1000,"km"),
-                 paste0("sample_coverage_",catchment_radius/1000,"km"))
+                 #paste0("wa_concentration_",catchment_radius/1000), 
+                 paste0("n_reachable_uml"),
+                 paste0("sample_coverage"))
     
     statistics <- c("mean", "std.dev", "median", "min", "max")
     
@@ -439,6 +440,7 @@ make_des_table_parcels_island <- function(island){
   }
   
   des_parcels <- cbind(CR_list[[1]], CR_list[[2]], CR_list[[3]])
+  rm(parcels_isl, CR_list)
   
   # row names
   row.names(des_parcels) <- c("From intact primary forest (ha)",
@@ -454,12 +456,14 @@ make_des_table_parcels_island <- function(island){
                               "Local government ownership (%)", 
                               "National private ownership (%)", 
                               "Foreign ownership (%)", 
-                              "Competition", 
+                              #"Competition", 
                               "# UML mills in catchment radius", 
-                              "Share of sample mills in catchment radius")
+                              "% of which are matched with IBS")
   
   return(des_parcels)
 }
+
+
 #### Print the LateX table code ALL ISLANDS ####
 
 des_table <- make_des_table_parcels_island(c("Sumatra", "Kalimantan", "Papua"))
@@ -475,13 +479,13 @@ kable(des_table, booktabs = T, align = "c",
   add_header_above(c(" " = 1, 
                      "mean" = 1, "std.dev." = 1, "median [min; max]" = 1, 
                      "mean" = 1, "std.dev." = 1, "median [min; max]" = 1,
-                     "mean" = 1, "std.dev." = 1, "median [min; max]" = 1), 
+                     "mean" = 1, "std.dev." = 1, "median [min; max]" = 1),
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 9839 cells" = 3,
-                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 38128 cells" = 3,
-                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 61738 cells" = 3),
+                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 11289 cells" = 3,
+                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 41844 cells" = 3,
+                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 66769 cells" = 3),
                    bold = T,
                    align = "c") %>%
   column_spec(column = c(2,3,5,6,8,9),
@@ -490,9 +494,9 @@ kable(des_table, booktabs = T, align = "c",
               width = "9em") %>%
   pack_rows("LUC to industrial oil palm plantations", 1, 5, 
             italic = TRUE)  %>%
-  pack_rows("Distance-weighted averages at \n mills in catchment radius", 6, 14, 
+  pack_rows("Invert-distance weighted averages \n of mills in catchment radius", 6, 13, #14 
             italic = TRUE)  %>%
-  pack_rows("Grid cell features", 15,16, 
+  pack_rows("Grid cell features", 14,15, #15, 16 with competition variable 
             italic = TRUE)  %>%
   footnote(general = c("Note"),
            threeparttable = TRUE, 
@@ -520,9 +524,9 @@ kable(des_table, booktabs = T, align = "c",
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 7284 cells" = 3,
-                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 25033 cells" = 3,
-                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 36785 cells" = 3),
+                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 8470 cells" = 3,
+                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 27512 cells" = 3,
+                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 39786 cells" = 3),
                    bold = T,
                    align = "c") %>%
   column_spec(column = c(2,3,5,6,8,9),
@@ -531,9 +535,9 @@ kable(des_table, booktabs = T, align = "c",
               width = "9em") %>%
   pack_rows("LUC to industrial oil palm plantations", 1, 5, 
             italic = TRUE)  %>%
-  pack_rows("Distance-weighted averages at \n mills in catchment radius", 6, 14, 
+  pack_rows("Invert-distance weighted averages \n of mills in catchment radius", 6, 13, 
             italic = TRUE)  %>%
-  pack_rows("Grid cell features", 15,16, 
+  pack_rows("Grid cell features", 14,15, 
             italic = TRUE)  %>%
   footnote(general = c("Note"),
            threeparttable = TRUE, 
@@ -558,9 +562,9 @@ kable(des_table, booktabs = T, align = "c",
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 2380 cells" = 3,
-                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 11650 cells" = 3,
-                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 21459 cells" = 3),
+                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 2609 cells" = 3,
+                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 12706 cells" = 3,
+                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 23257 cells" = 3),
                    bold = T,
                    align = "c") %>%
   column_spec(column = c(2,3,5,6,8,9),
@@ -571,9 +575,9 @@ kable(des_table, booktabs = T, align = "c",
               strikeout = TRUE) %>% #background = "#BCD4E6"
   pack_rows("LUC to industrial oil palm plantations", 1, 5, 
             italic = TRUE)  %>%
-  pack_rows("Distance-weighted averages at \n mills in catchment radius", 6, 14, 
+  pack_rows("Invert-distance weighted averages \n of mills in catchment radius", 6, 13, 
             italic = TRUE)  %>%
-  pack_rows("Grid cell features", 15,16, 
+  pack_rows("Grid cell features", 14,15, 
             italic = TRUE)  %>%
   footnote(general = c("Note"),
            threeparttable = TRUE, 
@@ -598,9 +602,9 @@ kable(des_table, booktabs = T, align = "c",
                    align = "c", 
                    strikeout = F) %>% 
   add_header_above(c(" " = 1,
-                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 175 cells" = 3,
-                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 1445 cells" = 3,
-                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 3494 cells" = 3),
+                     "Within 10km catchment radius \n of geo-localized IBS mills \n n = 210 cells" = 3,
+                     "Within 30km catchment radius \n of geo-localized IBS mills \n n = 1626 cells" = 3,
+                     "Within 50km catchment radius \n of geo-localized IBS mills \n n = 3726 cells" = 3),
                    bold = T,
                    align = "c") %>%
   column_spec(column = c(2,3,5,6,8,9),
@@ -609,13 +613,218 @@ kable(des_table, booktabs = T, align = "c",
               width = "9em") %>%
   pack_rows("LUC to industrial oil palm plantations", 1, 5, 
             italic = TRUE)  %>%
-  pack_rows("Distance-weighted averages at \n mills in catchment radius", 6, 14, 
+  pack_rows("Invert-distance weighted averages \n of mills in catchment radius", 6, 13, 
             italic = TRUE)  %>%
-  pack_rows("Grid cell features", 15,16, 
+  pack_rows("Grid cell features", 14,15, 
             italic = TRUE)  %>%
   footnote(general = c("Note"),
            threeparttable = TRUE, 
            escape = TRUE) 
+
+
+#### Table to compare samples of grid cells within 10, 30 and 50 km catchment radii. #### 
+# Interpretation
+# In Sumatra and overall, the differences are significant. 
+# In Kalimantan and Papua, the hypotheses that the samples are alike are more difficult to reject. 
+# This may reflect the fact that in Sumatra we observe a larger share of all existing mills. 
+# While in Kali and Papua, a larger share of the grid cells that we observe as within 50km 
+# of a mill is actually within 10 or 30km of a mill we do not observe. 
+# Therefore, in Kalimantan and Papua, the impression of similarity between areas close and away from mills 
+# may be spuriously given by our non exhaustive observation set of mills. 
+
+## TESTS BETWEEN 10-30km and between 30-50km catchment radii
+make_tests_CR_samples <- function(island){
+  parcels10 <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                        parcel_size/1000,"km_10CR.rds")))
+  parcels30 <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                        parcel_size/1000,"km_30CR.rds")))
+  parcels50 <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                        parcel_size/1000,"km_50CR.rds")))
+  
+  # filter parcels to island
+  parcels10_isl <- parcels10[parcels10$island %in% island,]
+  rm(parcels10)
+  parcels30_isl <- parcels30[parcels30$island %in% island,]
+  rm(parcels30)
+  parcels50_isl <- parcels50[parcels50$island %in% island,]
+  rm(parcels50)
+  # filter parcels to primary forested
+  parcels10_isl <- parcels10_isl[parcels10_isl$any_fc2000_30th,]
+  parcels30_isl <- parcels30_isl[parcels30_isl$any_fc2000_30th,]
+  parcels50_isl <- parcels50_isl[parcels50_isl$any_fc2000_30th,]
+  
+  
+  variables <- c("lucpfip_ha_intact", "lucpfip_ha_total",
+                 "lucfip_ha_90th", "lucfip_ha_60th", "lucfip_ha_30th", 
+                 "wa_est_year_imp", 
+                 "wa_ffb_price_imp1",
+                 "wa_cpo_price_imp1", 
+                 "wa_pko_price_imp1",
+                 "wa_pct_own_cent_gov_imp", "wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                 #paste0("wa_concentration_",catchment_radius/1000), 
+                 paste0("n_reachable_uml"),
+                 paste0("sample_coverage"))
+  
+  ## add the t-test column
+  # t-test between 10CR and 30CR grid cell samples
+  t_test10_30 <- matrix(NA, nrow = length(variables), ncol = 1) 
+  row.names(t_test10_30) <- variables
+  colnames(t_test10_30) <- "t test"
+  
+  for(var in variables){
+    test <- t.test(x = parcels10_isl[,var],
+                   y = parcels30_isl[,var], 
+                   alternative = "two.sided", 
+                   mu = 0, 
+                   paired = F, 
+                   var.equal = FALSE)
+    
+    t_test10_30[var,] <- test$p.value %>% formatC(digits = 3, format = "f")
+  }
+  
+  # t-test between 30CR and 50CR grid cell samples
+  t_test30_50 <- matrix(NA, nrow = length(variables), ncol = 1) 
+  row.names(t_test30_50) <- variables
+  colnames(t_test30_50) <- "t test"
+  
+  for(var in variables){
+    test <- t.test(x = parcels30_isl[,var],
+                   y = parcels50_isl[,var], 
+                   alternative = "two.sided", 
+                   mu = 0, 
+                   paired = F, 
+                   var.equal = FALSE)
+    
+    t_test30_50[var,] <- test$p.value %>% formatC(digits = 3, format = "f")
+  }
+  # interpretation: if the 95% CI includes 0, then the difference in means between two samples 
+  # is not statistically different from 0. Hence, the two samples are "similar" in means 
+  # with respect to the variable tested. 
+  # (In other words, we cannot reject the null hypothesis that the difference is null
+  # -i.e. the two samples are alike - with 95% confidence) 
+  
+  ## add the Smirnov test
+  # KS test between 10CR and 30CR grid cell samples
+  ks_test10_30 <- matrix(NA, nrow = length(variables), ncol = 1)
+  row.names(ks_test10_30) <- variables
+  colnames(ks_test10_30) <- "KS test"
+  
+  for(var in variables){
+    test <- ks.test(x = parcels10_isl[,var],
+                    y = parcels30_isl[,var], 
+                    alternative = "two.sided", 
+                    exact = FALSE)
+    
+    ks_test10_30[var,] <- test$p.value %>% formatC(digits = 3, format = "f")
+  }
+  
+  # KS test between 30CR and 50CR grid cell samples
+  ks_test30_50 <- matrix(NA, nrow = length(variables), ncol = 1)
+  row.names(ks_test30_50) <- variables
+  colnames(ks_test30_50) <- "KS test"
+  
+  for(var in variables){
+    test <- ks.test(x = parcels30_isl[,var],
+                    y = parcels50_isl[,var], 
+                    alternative = "two.sided", 
+                    exact = FALSE)
+    
+    ks_test30_50[var,] <- test$p.value %>% formatC(digits = 3, format = "f")
+  }
+  
+  # intepretation: if p-value < 0.05 we cannot reject with 95% confidence that 
+  # two distributions are equal, implying that they are different. 
+  
+  tests_parcels <- cbind(t_test10_30, ks_test10_30, t_test30_50, ks_test30_50)
+  
+  rm(parcels10_isl, parcels30_isl, parcels50_isl)
+  
+  # row names
+  row.names(tests_parcels) <- c("From intact primary forest (ha)",
+                              "From total primary forest (ha)",
+                              "From 90% tree cover forest (ha)",
+                              "From 60% tree cover forest (ha)",
+                              "From 30% tree cover forest (ha)",
+                              "Establishment year", 
+                              "FFB price signal (USD/ton)", 
+                              "CPO price signal (USD/ton", 
+                              "PKO price signal (USD/ton)", 
+                              "Central government ownership (%)", 
+                              "Local government ownership (%)", 
+                              "National private ownership (%)", 
+                              "Foreign ownership (%)", 
+                              #"Competition", 
+                              "# UML mills in catchment radius", 
+                              "% of which are matched with IBS")
+  
+
+  return(tests_parcels)
+}
+
+tests_table_all <- make_tests_CR_samples(c("Sumatra", "Kalimantan", "Papua"))
+tests_table_suma <- make_tests_CR_samples(c("Sumatra"))
+tests_table_kali <- make_tests_CR_samples(c("Kalimantan"))
+tests_table_papu <- make_tests_CR_samples(c("Papua"))
+
+tests_table <- cbind(tests_table_all, tests_table_suma, tests_table_kali, tests_table_papu)
+
+colnames(tests_table) <- NULL
+
+options(knitr.table.format = "latex") 
+kable(tests_table, booktabs = T, align = "c", 
+      caption = "Comparisons of grid cell samples within different catchment radii") %>% 
+  kable_styling(latex_options = c("scale_down", "hold_position")) %>% 
+  add_header_above(c(" " = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1,
+                     "t-test" = 1,
+                     "KS-test" = 1),
+                   bold = F,
+                   align = "c") %>%
+  add_header_above(c(" " = 1,
+                     "10km vs. 30km \n catchment radius" = 2,
+                     "30km vs. 50km \n catchment radius" = 2,
+                     "10km vs. 30km \n catchment radius" = 2,
+                     "30km vs. 50km \n catchment radius" = 2,
+                     "10km vs. 30km \n catchment radius" = 2,
+                     "30km vs. 50km \n catchment radius" = 2,
+                     "10km vs. 30km \n catchment radius" = 2,
+                     "30km vs. 50km \n catchment radius" = 2),
+                   bold = F, 
+                   align = "c") %>% 
+  add_header_above(c(" " = 1,
+                     "All islands" = 4,
+                     "Sumatra" = 4,
+                     "Kalimantan" = 4,
+                     "Papua" = 4), 
+                   bold = T, 
+                   align = "c") %>% 
+  pack_rows("LUC to industrial oil palm plantations", 1, 5, 
+            italic = TRUE)  %>%
+  pack_rows("Invert-distance weighted averages \n of mills in catchment radius", 6, 13, #14 
+            italic = TRUE)  %>%
+  pack_rows("Grid cell features", 14,15, #15, 16 with competition variable 
+            italic = TRUE)  %>%
+  column_spec(column = c(1),
+              width = "20em") %>%
+  footnote(general = c("Note"),
+           threeparttable = TRUE, 
+           escape = TRUE) 
+
+
+
 
 
 

@@ -58,29 +58,28 @@ merge_lhs_rhs <- function(parcel_size, catchment_radius){
 lucpfip <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",
                                 parcel_size/1000,"km_",catchment_radius/1000,"km_IBS_CR.rds")))
 
-# keep only year before 2015 (after they mean nothing since we plantation data are from 2015)
-lucpfip <- lucpfip[lucpfip$year<=2015,] # now runs from 2001-1998
-# remove coordinates, they are already in RHS
-lucpfip <- dplyr::select(lucpfip, -lat, -lon)
-
 lucfip <- readRDS(file.path(paste0("temp_data/processed_parcels/lucfip_panel_",
                                     parcel_size/1000,"km_",catchment_radius/1000,"km_IBS_CR.rds")))
-
 # keep only year before 2015 (after they mean nothing since we plantation data are from 2015)
+lucpfip <- lucpfip[lucpfip$year<=2015,] # now runs from 2001-1998
 lucfip <- lucfip[lucfip$year<=2015,] # now runs from 2001-1998
+
 # remove coordinates, they are already in RHS
+lucpfip <- dplyr::select(lucpfip, -lat, -lon)
 lucfip <- dplyr::select(lucfip, -lat, -lon)
+
 
 nrow(lucpfip)==nrow(lucfip)
 LHS <- base::merge(lucpfip, lucfip, by = c("parcel_id", "year"))
 
 # explicative variables (runs from 1998-2015)
-RHS <-  readRDS(file.path(paste0("temp_data/processed_parcels/wa_panel_parcels_more_variables_",
+RHS <-  readRDS(file.path(paste0("temp_data/processed_parcels/parcels_panel_final_",
                                   parcel_size/1000,"km_",catchment_radius/1000,"CR.rds")))
 
 # MERGE
-# years 1998 - 2000 will thus not match, but we want to keep them, hence all = TRUE
-final <- base::merge(LHS, RHS, by = c("parcel_id", "year"), all = TRUE)  
+# years 1998 - 2000 from RHS will not match, we don't need to keep them because the information 
+# from these years is captured in add_parcel_variables.R within lag variables. Hence all = FALSE
+final <- base::merge(LHS, RHS, by = c("parcel_id", "year"), all = FALSE)  
 
 # some arrangements
 final <- dplyr::arrange(final, parcel_id, year)

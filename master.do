@@ -92,7 +92,7 @@ rsource using "install_R_project_packages.R"
 		* input: temp_data/processed_IBS/IBS_PO_98_15_cleaned.dta
 		* output: temp_data/processed_mill_geolocalization/IBSmills_valid_desa.dta
 
-		** give IBS mills a desa geometry
+		** give IBS mills a desa geometry and centroid
 		rsource using "code/mill_geolocalization/make_IBSmills_desageom.R"
 		* input: temp_data/processed_mill_geolocalization/IBSmills_valid_desa.dta
 		* 		 input_data/indonesia_spatial/village_shapefiles/desa_1998_crosswalked.shp 
@@ -329,14 +329,14 @@ rsource using "install_R_project_packages.R"
 		*			temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta
 		*			temp_data/processed_parcels/baseline_fc_cs_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
 
-		*output: 	temp_data/processed_parcels/wa_panel_parcels_reachable_uml_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
-		*			temp_data/processed_parcels/wa_panel_parcels_more_variables_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
-
+		*output: 	temp_data/processed_parcels/parcels_panel_reachable_uml_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+		*			temp_data/processed_parcels/parcels_panel_geovars_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+		*			temp_data/processed_parcels/parcels_panel_final_PS_CR.rds   for PS = 3km, CR = (10CR, 30CR, 50CR)
 
 **** Merge LHS and RHS (!)
 	rsource using "code/merge_lhs_rhs_parcels.R"
 		* input: 	temp_data/processed_parcels/OV_panel_PS_CR.rds 		for OV = (lucpfip, lucfip, ... ); PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
-		*			temp_data/processed_parcels/wa_panel_parcels_more_variables_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+		*			temp_data/processed_parcels/parcels_panel_final_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 
 		* output: 	temp_data/panel_parcels_ip_final_PS_CR.rds  for PS = 3km, CR = (10CR, 30CR, 50CR)
 

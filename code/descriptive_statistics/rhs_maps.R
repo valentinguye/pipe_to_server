@@ -126,7 +126,7 @@ catchment_radius <- 30000
   ibs_cr_lonlat <- st_transform(ibs_cr, crs = 4326)
   
   
-  parcels <- readRDS(file.path(paste0("temp_data/processed_parcels/wa_panel_parcels_reachable_uml_",
+  parcels <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
                                       parcel_size/1000,"km_",
                                       catchment_radius/1000,"CR.rds")))  
   
@@ -143,16 +143,16 @@ catchment_radius <- 30000
                      tm_pct_own_for = mean(wa_pct_own_for_imp, na.rm = TRUE),
                      tm_pct_own_nat_priv = mean(wa_pct_own_nat_priv_imp, na.rm = TRUE),
                      tm_pct_own_cent_gov = mean(wa_pct_own_cent_gov_imp, na.rm = TRUE),
-                     tm_concentration_10 = mean(wa_concentration_10, na.rm = TRUE),
-                     tm_concentration_30 = mean(wa_concentration_30, na.rm = TRUE),
-                     tm_concentration_50 = mean(wa_concentration_50, na.rm = TRUE),
+                     # tm_concentration_10 = mean(wa_concentration_10, na.rm = TRUE),
+                     # tm_concentration_30 = mean(wa_concentration_30, na.rm = TRUE),
+                     # tm_concentration_50 = mean(wa_concentration_50, na.rm = TRUE),
                      tm_n_reachable_ibs = mean(n_reachable_ibs, na.rm = TRUE),
-                     tm_n_reachable_uml_10 = mean(n_reachable_uml_10km, na.rm = TRUE),
-                     tm_n_reachable_uml_30 = mean(n_reachable_uml_30km, na.rm = TRUE),
-                     tm_n_reachable_uml_50 = mean(n_reachable_uml_50km, na.rm = TRUE),
-                     tm_sample_coverage_10km = mean(sample_coverage_10km, na.rm = TRUE),
-                     tm_sample_coverage_30km = mean(sample_coverage_30km, na.rm = TRUE),
-                     tm_sample_coverage_50km = mean(sample_coverage_50km, na.rm = TRUE)
+                     tm_n_reachable_uml = mean(n_reachable_uml, na.rm = TRUE),
+                     tm_n_reachable_uml = mean(n_reachable_uml, na.rm = TRUE),
+                     tm_n_reachable_uml = mean(n_reachable_uml, na.rm = TRUE),
+                     tm_sample_coverage = mean(sample_coverage, na.rm = TRUE),
+                     tm_sample_coverage = mean(sample_coverage, na.rm = TRUE),
+                     tm_sample_coverage = mean(sample_coverage, na.rm = TRUE)
                      )
   
   # round time mean variables for display purpose
@@ -172,7 +172,8 @@ catchment_radius <- 30000
   # those with NA all years produce a NaN despite na.rm = TRUE (it is the mean of nothing...)
   # and this makes rasterize not work. 
   for(nc in 1:ncol(parcels_cs)){
-    parcels_cs[,nc][is.nan(parcels_cs[,nc])] <- -0.01
+    parcels_cs[,nc][is.nan(parcels_cs[,nc])] <- -0.01 
+    # this negative number enables us to identify these cases because we have only variables defined on positive segment.
   }
   
   # make spatial and split into islands
@@ -181,6 +182,9 @@ catchment_radius <- 30000
   parcels_suma <- parcels_cs[startsWith(as.character(parcels_cs$parcel_id), "1"),]
   parcels_kali <- parcels_cs[startsWith(as.character(parcels_cs$parcel_id), "2"),]
   parcels_papu <- parcels_cs[startsWith(as.character(parcels_cs$parcel_id), "3"),]
+  
+  # drop geometry of parcels_cs because need it as a mere df in the leaflet afterwards. 
+  parcels_cs <- st_drop_geometry(parcels_cs)
   
   parcels_suma_sp <- as(parcels_suma, "Spatial")  
   parcels_kali_sp <- as(parcels_kali, "Spatial")  
@@ -193,17 +197,13 @@ catchment_radius <- 30000
   raster_suma <- rasterize(parcels_suma_sp, template_suma, 
                       field = c("tm_est_year_imp", 
                                 "tm_pffb_imp1", "tm_pffb_imp2",             
-                               "tm_pcpo_imp1", "tm_pcpo_imp2",
-                               "tm_prex_cpo_imp1", "tm_prex_cpo_imp2",
-                               "tm_pct_own_for", "tm_pct_own_nat_priv", "tm_pct_own_cent_gov",
-                                 "tm_concentration_10", "tm_concentration_30","tm_concentration_50",
+                                 "tm_pcpo_imp1", "tm_pcpo_imp2",
+                                 "tm_prex_cpo_imp1", "tm_prex_cpo_imp2",
+                                 "tm_pct_own_for", "tm_pct_own_nat_priv", "tm_pct_own_cent_gov",
+                                 #"tm_concentration_10", "tm_concentration_30","tm_concentration_50",
                                  "tm_n_reachable_ibs", 
-                               "tm_n_reachable_uml_10",
-                               "tm_n_reachable_uml_30",
-                               "tm_n_reachable_uml_50",
-                                 "tm_sample_coverage_10km", 
-                                 "tm_sample_coverage_30km",
-                                 "tm_sample_coverage_50km" ))
+                                 "tm_n_reachable_uml",
+                                 "tm_sample_coverage" ))
   
   raster_kali <- rasterize(parcels_kali_sp, template_kali, 
                       field = c("tm_est_year_imp", 
@@ -211,14 +211,10 @@ catchment_radius <- 30000
                                 "tm_pcpo_imp1", "tm_pcpo_imp2",
                                 "tm_prex_cpo_imp1", "tm_prex_cpo_imp2",
                                 "tm_pct_own_for", "tm_pct_own_nat_priv", "tm_pct_own_cent_gov",
-                                "tm_concentration_10", "tm_concentration_30","tm_concentration_50",
+                                #"tm_concentration_10", "tm_concentration_30","tm_concentration_50",
                                 "tm_n_reachable_ibs", 
-                                "tm_n_reachable_uml_10",
-                                "tm_n_reachable_uml_30",
-                                "tm_n_reachable_uml_50",
-                                "tm_sample_coverage_10km", 
-                                "tm_sample_coverage_30km",
-                                "tm_sample_coverage_50km" ))
+                                "tm_n_reachable_uml",
+                                "tm_sample_coverage"))
   
   raster_papu <- rasterize(parcels_papu_sp, template_papu, 
                       field = c("tm_est_year_imp", 
@@ -226,23 +222,25 @@ catchment_radius <- 30000
                                 "tm_pcpo_imp1", "tm_pcpo_imp2",
                                 "tm_prex_cpo_imp1", "tm_prex_cpo_imp2",
                                 "tm_pct_own_for", "tm_pct_own_nat_priv", "tm_pct_own_cent_gov",
-                                "tm_concentration_10", "tm_concentration_30","tm_concentration_50",
+                                #"tm_concentration_10", "tm_concentration_30","tm_concentration_50",
                                 "tm_n_reachable_ibs", 
-                                "tm_n_reachable_uml_10",
-                                "tm_n_reachable_uml_30",
-                                "tm_n_reachable_uml_50",
-                                "tm_sample_coverage_10km", 
-                                "tm_sample_coverage_30km",
-                                "tm_sample_coverage_50km" ))
+                                "tm_n_reachable_uml",
+                                "tm_sample_coverage"))
 
+  # reclassify -0.01 to NAs (all these NAs before prevent rasterize to work)
+  raster_suma <- reclassify(raster_suma, rcl = cbind(-0.01, NA))
+  raster_kali <- reclassify(raster_kali, rcl = cbind(-0.01, NA))
+  raster_papu <- reclassify(raster_papu, rcl = cbind(-0.01, NA))
+  
   
   #### MAP FFB PRICE ####
   displayed_var <- "tm_pffb_imp1"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
- # bins <- seq(from = 40, to = 180, by = 20)
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
+  # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("BuPu", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                 domain = time_mean[,displayed_var], 
+                 domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                  #bins = 4, 
                  na.color = "transparent", 
                  reverse = FALSE)
@@ -274,9 +272,11 @@ catchment_radius <- 30000
     addPolygons(opacity = 0.5, color = border, weight = 2, fill = FALSE) %>%
     addRasterImage(raster::subset(raster_suma, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
-    addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
+    #addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
     addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
+    addLegend(pal = cb,  
+              values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
+              bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = " USD/ton FFB"),
               #labels = bin_labels, # this lign does not do anything
               title = "Local FFB prices, <br/> 1998-2015 average",
@@ -285,11 +285,13 @@ catchment_radius <- 30000
   
   #### MAP CPO PRICE ####
   displayed_var <- "tm_pcpo_imp1"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
+  
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("YlOrRd", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                     domain = time_mean[,displayed_var], 
+                     domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
   # "viridis", "magma", "inferno", or "plasma".
@@ -320,22 +322,27 @@ catchment_radius <- 30000
     addPolygons(opacity = 0.5, color = border, weight = 2, fill = FALSE) %>%
     addRasterImage(raster::subset(raster_suma, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
-    addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
+    #addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
     addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
+    addLegend(pal = cb,  values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var],
+              bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = " USD/ton CPO"),
               #labels = bin_labels, # this lign does not do anything
               title = "Local CPO prices, <br/> 1998-2015 average",
               position = "bottomright") 
   
   
+  
+  
   #### MAP PCT OWN PUBLIC ####
   displayed_var <- "tm_pct_own_cent_gov"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
+  
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("viridis", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                     domain = time_mean[,displayed_var], 
+                     domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
   # "viridis", "magma", "inferno", or "plasma".
@@ -368,7 +375,7 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
     addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
+    addLegend(pal = cb,  values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = "%"),
               #labels = bin_labels, # this lign does not do anything
               title = "Central gvt. ownership, <br/> 1998-2015 average",
@@ -376,13 +383,15 @@ catchment_radius <- 30000
     
  
   
-  
+  #### MAP PCT OWN PRIVATE ####
   displayed_var <- "tm_pct_own_for"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
+  
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("viridis", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                     domain = time_mean[,displayed_var], 
+                     domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
   # "viridis", "magma", "inferno", or "plasma".
@@ -415,7 +424,7 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
     addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
+    addLegend(pal = cb,  values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = "%"),
               #labels = bin_labels, # this lign does not do anything
               title = "Foreign ownership, <br/> 1998-2015 average",
@@ -424,11 +433,13 @@ catchment_radius <- 30000
   
   #### MAP  CONCENTRATION ####
   displayed_var <- "tm_concentration_30"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
+  
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("plasma", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                     domain = time_mean[,displayed_var], 
+                     domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
   # "viridis", "magma", "inferno", or "plasma".
@@ -460,7 +471,7 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_suma, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
+    addLegend(pal = cb,  values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = ""),
               #labels = bin_labels, # this lign does not do anything
               title = "Competing mills, <br/> 1998-2015 average",
@@ -472,11 +483,13 @@ catchment_radius <- 30000
   
   #### MAP  N REACHABLE UML ####
   displayed_var <- "tm_n_reachable_uml_30"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
+  
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("plasma", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                     domain = time_mean[,displayed_var], 
+                     domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
   # "viridis", "magma", "inferno", or "plasma".
@@ -509,7 +522,7 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
     addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 5, opacity = 0.7,
+    addLegend(pal = cb,  values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], bins = 5, opacity = 0.7,
               labFormat = labelFormat(suffix = ""),
               #labels = bin_labels, # this lign does not do anything
               title = "Reachable UML mills, <br/> 1998-2015 average",
@@ -518,11 +531,13 @@ catchment_radius <- 30000
   
   #### MAP  SAMPLE COVERAGE ####
   displayed_var <- "tm_sample_coverage_30km"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
+  
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("viridis", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                     domain = time_mean[,displayed_var], 
+                     domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
   # "viridis", "magma", "inferno", or "plasma".
@@ -555,7 +570,7 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
     addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
+    addLegend(pal = cb,  values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = "%"),
               #labels = bin_labels, # this lign does not do anything
               title = "Share of sample in <br/> all reachable mills <br/> 1998-2015 average",
@@ -567,11 +582,13 @@ catchment_radius <- 30000
   
   #### MAP  EXPORT SHARE ####
   displayed_var <- "tm_prex_cpo_imp2"
+  parcels_cs[parcels_cs[,displayed_var] == -0.01, displayed_var] <- NA
+  
   # settings for lucfp legend 
-  summary(time_mean[,displayed_var])
+  summary(parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var])
   # bins <- seq(from = 40, to = 180, by = 20)
   cb <- colorNumeric("BuPu", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
-                     domain = time_mean[,displayed_var], 
+                     domain = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], 
                      #bins = 4, 
                      na.color = "transparent")
   # "viridis", "magma", "inferno", or "plasma".
@@ -604,7 +621,7 @@ catchment_radius <- 30000
     addRasterImage(raster::subset(raster_kali, displayed_var), project = TRUE, colors = cb) %>% 
     addRasterImage(raster::subset(raster_papu, displayed_var), project = TRUE, colors = cb) %>% 
     addLegend(colors = legend_colors, labels = label, position = "bottomright") %>% 
-    addLegend(pal = cb,  values = time_mean[,displayed_var], bins = 4, opacity = 0.7,
+    addLegend(pal = cb,  values = parcels_cs[parcels_cs$island=="Sumatra"|parcels_cs$island=="Kalimantan",displayed_var], bins = 4, opacity = 0.7,
               labFormat = labelFormat(suffix = "%"),
               #labels = bin_labels, # this lign does not do anything
               title = "CPO export share, <br/> 1998-2015 average",

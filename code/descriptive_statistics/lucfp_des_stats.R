@@ -101,14 +101,18 @@ lapply(troublePackages, library, lib.loc = default_libraries, character.only = T
 #   which we center at Indonesian longitude with lat_ts = 0 and lon_0 = 115.0
 indonesian_crs <- "+proj=cea +lon_0=115.0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
-##### Prepare polygons of interest #####
 ### Prepare polygons of three Indonesian islands of interest ###
 island_sf <- st_read(file.path("temp_data/processed_indonesia_spatial/island_sf"))
 names(island_sf)[names(island_sf)=="island"] <- "shape_des"
 
 island_sf_prj <- st_transform(island_sf, crs = indonesian_crs)
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+
+##### Prepare polygons of interest #####
+
 # st_write(island_sf_prj, "temp_data/processed_indonesia_spatial/island_sf_prj", 
 #          driver = "ESRI Shapefile", 
 #          delete_dsn = TRUE, 
@@ -388,6 +392,13 @@ for(island in IslandS){
 # This makes 21 polygons in which to extract from 6 layers of 2000 forest cover.
 # For efficiency reasons, we do this in GEE, because all polygons are pretty large and even a single extract 
 # operation is long in R (and there 126 of them).  
+# - GEE code for extraction on forest of different canopy densities outside indsutrial plantations in 2000
+# https://code.earthengine.google.com/?scriptPath=users%2Fvalentinguye%2Frepo1%3Afc2000_outside_plantations_extractions
+# - GEE code for extraction on different primary forest types
+# https://code.earthengine.google.com/?scriptPath=users%2Fvalentinguye%2Frepo1%3Aprimary_forest_cover_2000
+
+
+
 
 
 #### Make an ordered data frame that is easily tabulized afterwards. ####
@@ -568,7 +579,15 @@ kable(LU_stat_des, booktabs = T, align = "c",
            escape = TRUE) 
 
 
+
+
+
 ##### 2. ACCUMULATED LUCFP #####
+
+ibs <- mills
+ibs <- ibs[!is.na(ibs$lat),]
+ibs <- st_as_sf(ibs, coords = c("lon", "lat"), crs = 4326)
+ibs[ibs$island_name == "Papua" & ibs$uml_matched_sample==1, "geometry"] %>% plot()
 
 # Make the template table
 
@@ -777,8 +796,7 @@ kable(LU_stat_des, booktabs = T, align = "c",
   pack_rows("Papua", 17, 24)  %>%
   column_spec(column = c(2:7),
               width = "5em") %>% 
-  footnote(general = c("In parentheses the figures from Austin et al. (2017), for primary and secondary forest categories from MoEF which correspond respectively to intact primary and degraded primary forest from Margono et al. 2014.",
-                       "Sample mills are the 470 IBS palm oil mills we matched with the UML database."),
+  footnote(general = c(""),
            threeparttable = TRUE, 
            escape = TRUE) 
 
@@ -792,6 +810,7 @@ kable(LU_stat_des, booktabs = T, align = "c",
 ibs <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
 ibs <- ibs[ibs$analysis_sample == 1,]
 ibs <- ibs[!duplicated(ibs$firm_id),]
+length(unique(ibs$firm_id))
 
 ibs <- st_as_sf(ibs,	coords	=	c("lon",	"lat"), crs=4326)
 ibs <- st_geometry(ibs)
@@ -860,10 +879,10 @@ cb <- colorBin("plasma",
 #                     na.color = "transparent")
 
 # this does not do anything: 
-bin_labels <- c("0-300ha", "300-600ha", "600-900ha")
-bin_labels <- paste0("<div style='display: inline-block;height: ", 
-                     size, "px;margin-top: 4px;line-height: ", 
-                     size, "px;'>", bin_labels, "</div>")
+# bin_labels <- c("0-300ha", "300-600ha", "600-900ha")
+# bin_labels <- paste0("<div style='display: inline-block;height: ", 
+#                      size, "px;margin-top: 4px;line-height: ", 
+#                      size, "px;'>", bin_labels, "</div>")
 
 # settings for catchment radius legend
 color <- "transparent"

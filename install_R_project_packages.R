@@ -30,7 +30,8 @@ neededPackages <- c("data.table", "dplyr", "plyr", "Hmisc", "sjmisc", "stringr",
                     "readstata13", "foreign", "readxl", "writexl",
                     "raster", "rgdal", "sp", "sf","gfcanalysis",
                     "doParallel", "foreach", "parallel", "snow", 
-                    "knitr")
+                    "knitr", 
+                    "DataCombine")
 
 # Note that from ?renv::restore 
 # "Any required recursive dependencies of the requested packages will be restored as well."
@@ -102,13 +103,13 @@ if(FALSE){
   #library(leaflet)
   #library(velox)
   #library(ExPanDaR)
-  
+  library(DataCombine)
 }
 
 # If new packages are needed along the project data processing workflow, one should: 
 # 1. install the packages in a user local default library (you may have to chose explicitly which, hence the brackets after default_libraries)
-install.packages("package", lib = default_libraries[1])
-# 2. add 'library(package)' in the list above, and ',"package"' in the neededPackages vector above.
+install.packages("DataCombine", lib = default_libraries[1])
+# 2. add 'library(package)' in the list above, and ',"package"' in the neededPackages vector above, and save the present file.
 # 3. perform an implicit (the default) snapshot, that writes to the renv.lock file the packages at
 # the intersection between packages found in the project by renv::dependencies() 
 # (hence the 'library(package)' line from 2. above.) 

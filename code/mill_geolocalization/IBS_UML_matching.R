@@ -154,7 +154,7 @@ ibs_na <-dplyr::select(ibs_na, firm_id)
 write.dta(ibs_na, "temp_data/processed_mill_geolocalization/pre2011_bad_desa_id.dta")
 
 
-### Those that have a desa polygon but match with no uml mills (592) out_ton_cpo_imp2, district_name, village_name,
+### Those that have a desa polygon but match with no uml mills (592)
 ibs_unref$desa_id <- as.character(ibs_unref$desa_id)
 ibs_unref <- st_transform(ibs_unref, crs = 4326)
 
