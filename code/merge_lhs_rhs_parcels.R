@@ -14,7 +14,8 @@
 # see this project's README for a better understanding of how packages are handled in this project. 
 
 # These are the packages needed in this particular script. 
-neededPackages = c("dplyr", "foreign")
+neededPackages = c("dplyr", "foreign", 
+                   "DataCombine")
 
 # Install them in their project-specific versions
 renv::restore(packages = neededPackages)
@@ -80,6 +81,26 @@ RHS <-  readRDS(file.path(paste0("temp_data/processed_parcels/parcels_panel_fina
 # years 1998 - 2000 from RHS will not match, we don't need to keep them because the information 
 # from these years is captured in add_parcel_variables.R within lag variables. Hence all = FALSE
 final <- base::merge(LHS, RHS, by = c("parcel_id", "year"), all = FALSE)  
+
+# add outcome variable lags
+
+### One year lags of outcome variables
+outcome_variables <- c("lucpfip_ha_intact", "lucpfip_ha_degraded", "lucpfip_ha_total",
+                       "lucpfip_pixelcount_intact", "lucpfip_pixelcount_degraded", "lucpfip_pixelcount_total",
+                       "lucfip_ha_30th", "lucfip_ha_60th", "lucfip_ha_90th", 
+                       "lucfip_pixelcount_30th", "lucfip_pixelcount_60th", "lucfip_pixelcount_90th")
+
+for(voi in outcome_variables){
+  final <- dplyr::arrange(final, parcel_id, year)
+  final <- DataCombine::slide(final,
+                                Var = voi, 
+                                TimeVar = "year",
+                                GroupVar = "parcel_id",
+                                NewVar = paste0(voi,"_lag",1),
+                                slideBy = -1, 
+                                keepInvalid = TRUE)
+  final <- dplyr::arrange(final, parcel_id, year)
+}
 
 # some arrangements
 final <- dplyr::arrange(final, parcel_id, year)

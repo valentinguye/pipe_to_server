@@ -12,6 +12,9 @@
 #         
 #           island polygons
 #           --> temp_data/processed_indonesia_spatial/island_sf
+#   
+#           Province polygons
+#           --> input_data/indonesia_spatial/province_shapefiles/IDN_adm1.shp
 #
 #           district polygons and names (prepare in prepare_crosswalks.do)
 #           --> input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp
@@ -24,7 +27,10 @@
 #   Outputs: parcel panel with new columns: the parcel and time varying numbers of UML mills reachable within 10, 30 and 50km. 
 #                                           the island, the district, and the pixelcounts and areas (ha) of 2000 forest extents
 #                                           (for 30% tree canopy density outside indsutrial plantations and total primary forest. 
-#           --> pattern wa_panel_parcels_more_variables_ ; for each parcel_size and catchment_radius combination
+#           --> pattern temp_data/processed_parcels/parcels_panel_reachable_uml_
+#                       temp_data/processed_parcels/parcels_panel_geovars_
+#                       temp_data/processed_parcels/parcels_panel_final_ 
+#                       ; for each parcel_size and catchment_radius combination
 # 
 # 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
@@ -223,8 +229,6 @@ for(catchment_radius in catchment_radiuseS){
   parcels <- st_as_sf(parcels, coords = c("lon", "lat"), crs = indonesian_crs, remove = FALSE)
   
   
-  ### GEOGRAPHIC VARIABLES 
-  
   # ISLAND variable
   island_sf <- st_read(file.path("temp_data/processed_indonesia_spatial/island_sf"))
   names(island_sf)[names(island_sf)=="island"] <- "shape_des"
@@ -259,6 +263,20 @@ for(catchment_radius in catchment_radiuseS){
   parcels$island <- replace(parcels$island, parcels$island == 3, "Kalimantan")
   
   
+  # PROVINCE variable
+  
+  # Work with a cross section for province and district attribution
+  parcels_cs <- parcels[!duplicated(parcels$parcel_id),]
+
+  
+  province_sf <- st_read(file.path("input_data/indonesia_spatial/province_shapefiles/IDN_adm1.shp"))
+  province_sf <- dplyr::select(province_sf, NAME_1)
+  province_sf_prj <- st_transform(province_sf, crs = indonesian_crs)
+  
+  # the nearest feature function enables to also grab those parcels which centroids are in the sea.
+  nearest_prov_idx <- st_nearest_feature(parcels_cs, province_sf_prj)
+  
+  parcels_cs$province <- province_sf_prj$NAME_1[nearest_prov_idx]
   
   # DISTRICT variable
   district_sf <- st_read(file.path("input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp"))
@@ -274,15 +292,13 @@ for(catchment_radius in catchment_radiuseS){
   district_sf_prj <- st_transform(district_sf, crs = indonesian_crs)
   
   # the nearest feature function enables to also grab those parcels which centroids are in the sea.
-  parcels_cs <- parcels[!duplicated(parcels$parcel_id),]
-  
   nearest_dstr_idx <- st_nearest_feature(parcels_cs, district_sf_prj)
   
   # 4 parcels are closest to district with no name (NA) 
   parcels_cs$district <- district_sf_prj$name_[nearest_dstr_idx]
   
   parcels <- merge(st_drop_geometry(parcels),
-                   st_drop_geometry(parcels_cs[,c("parcel_id", "district")]),
+                   st_drop_geometry(parcels_cs[,c("parcel_id", "province", "district")]),
                    by = "parcel_id")
  
   saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/parcels_panel_geovars_",
@@ -291,6 +307,9 @@ for(catchment_radius in catchment_radiuseS){
 }
 
   # parcels_list[[match(catchment_radius, catchment_radiuseS)]] <- parcels
+
+
+
 
 #### BASELINE FOREST EXTENT VARIABLES AND TIME DYNAMICS VARIABLES ####
 catchment_radiuseS <- c(1e4, 3e4, 5e4)#
@@ -329,7 +348,7 @@ for(catchment_radius in catchment_radiuseS){
   
 #### TIME DYNAMICS VARIABLES #### 
   #parcels <- st_drop_geometry(parcels)
-  
+    
   ### Simple lags and leads on a large set of variables
   variables <- c("wa_ffb_price_imp1", "wa_ffb_price_imp2", 
                 "wa_cpo_price_imp1", "wa_cpo_price_imp2", "wa_prex_cpo_imp1","wa_prex_cpo_imp2",       
@@ -376,13 +395,14 @@ for(catchment_radius in catchment_radiuseS){
   
   for(voi in variables){
     
-    ## Past-year averages (2, 3 and 5 years) and deviations (also lagged)
+    ## Past-year averages (2, 3 and 4 years) - LONG RUN MEASURE - 
     
     for(py in c(2,3,4)){
       parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_lag",c(1:py))], na.rm = TRUE)
       parcels[is.nan(parcels$newv),"newv"] <- NA
       colnames(parcels)[colnames(parcels)=="newv"] <- paste0(voi,"_",py,"pya")
-      # and absolute deviation
+      
+      ## and absolute deviation - SHORT RUN MEASURE -
       parcels <- mutate(parcels,
                         !!as.symbol(paste0(voi,"_dev_",py,"pya")) := !!as.symbol(paste0(voi)) - 
                                                                      !!as.symbol(paste0(voi,"_",py,"pya")))
@@ -402,17 +422,32 @@ for(catchment_radius in catchment_radiuseS){
                                   slideBy = -1, 
                                   keepInvalid = TRUE)  
       parcels <- dplyr::arrange(parcels, parcel_id, year)
+      
+      # lag also just the past year average (useful if we use those per se. as measures of LR price signal)
+      # note that 3pya_lag1 is different from 4pya. 
+      parcels <- dplyr::arrange(parcels, parcel_id, year)
+      parcels <- DataCombine::slide(parcels,
+                                    Var = paste0(voi,"_",py,"pya"), 
+                                    TimeVar = "year",
+                                    GroupVar = "parcel_id",
+                                    NewVar = paste0(voi,"_",py,"pya_lag1"),
+                                    slideBy = -1, 
+                                    keepInvalid = TRUE)  
+      parcels <- dplyr::arrange(parcels, parcel_id, year)
     }
+    
+    
+    
     
     ### Contemporaneous and past-year averaged year-on-year growth 
     
-    ## contemporaneous yoyg (invalid for at least the first record of each parcel_id)
+    ## contemporaneous yoyg - SHORT RUN MEASURE - (invalid for at least the first record of each parcel_id)
     parcels <- mutate(parcels,
                       !!as.symbol(paste0(voi,"_yoyg")) := 100*(!!as.symbol(paste0(voi)) - 
                                                                !!as.symbol(paste0(voi,"_lag1"))) /
                                                                !!as.symbol(paste0(voi,"_lag1")))
                         
-    ## Lagged yoyg  
+    ## Lagged yoyg (this is only a step)
     # (the first lag is invalid for at least two first records of each parcel_id;    
     # the fourth lag is invalid for at least 5 first records)
     for(lag in c(1:4)){
@@ -427,7 +462,8 @@ for(catchment_radius in catchment_radiuseS){
       parcels <- dplyr::arrange(parcels, parcel_id, year)
     }
     
-    ## past-years averaged yoyg
+    
+    ## past-years averaged yoyg - LONG RUN MEASURE - 
     for(py in c(2,3,4)){
       parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_yoyg_lag",c(1:py))], na.rm = TRUE)
       # treat NaNs that arise from means over only NAs when na.rm = T 
@@ -456,14 +492,16 @@ for(catchment_radius in catchment_radiuseS){
 # 
 # voi <- "wa_ffb_price_imp1"
 # View(parcels[parcels$parcel_id==16500,c("parcel_id", "year",
-#                                         voi,
-#                                         paste0(voi,"_lag",c(1:3)),
-#                                         paste0(voi,"_3pya"), 
-#                                         paste0(voi,"_dev_3pya"),
-#                                         paste0(voi,"_dev_3pya_lag1"),
-#                                         paste0(voi,"_yoyg"),
-#                                         paste0(voi,"_yoyg_lag", c(1:3)),
-#                                         paste0(voi,"_yoyg_3pya"))])
+#                                         voi,#
+#                                         paste0(voi,"_lag",c(1:3)),#
+#                                         paste0(voi,"_3pya"),#
+#                                         paste0(voi,"_3pya_lag1"),#
+#                                         paste0(voi,"_dev_3pya"),#
+#                                         paste0(voi,"_dev_3pya_lag1"),#
+#                                         paste0(voi,"_yoyg"),#
+#                                         paste0(voi,"_yoyg_lag", c(1:3)),#
+#                                         paste0(voi,"_yoyg_3pya"),#
+#                                         paste0(voi,"_yoyg_3pya_lag1"))])#
 
 
   

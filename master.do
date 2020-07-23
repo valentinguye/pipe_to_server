@@ -325,6 +325,7 @@ rsource using "install_R_project_packages.R"
 		* input:	temp_data/processed_UML/UML_valentin_imputed_est_year.dta
 		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds  	 for PS = 3km, CR = (10CR, 30CR, 50CR)
 		*			temp_data/processed_indonesia_spatial/island_sf
+		*			input_data/indonesia_spatial/province_shapefiles/IDN_adm1.shp
 		*			input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp
 		*			temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta
 		*			temp_data/processed_parcels/baseline_fc_cs_PS_CR.rds for PS = 3km, CR = (10km_IBS_CR, 30km_IBS_CR, 50km_IBS_CR)
