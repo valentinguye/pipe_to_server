@@ -57,7 +57,32 @@ setFixest_dict(c(parcel_id = "grid cell",
                  lucfip_pixelcount_30th = "LUCFIP (30 pct. canopy density, pixels)",
                  lucfip_pixelcount_60th = "LUCFIP (60 pct. canopy density, pixels)",
                  lucfip_pixelcount_90th = "LUCFIP (90 pct. canopy density, pixels)",
-                 ## 2 past year average
+                 # No time dynamics FFB variables 
+                 wa_ffb_price_imp1_3ya = "FFB price signal, 3 year average",
+                 wa_ffb_price_imp1_3ya_lag1 = "FFB price signal, 3 year average (lagged)",
+                 wa_ffb_price_imp1_4ya = "FFB price signal, 4 year average",
+                 wa_ffb_price_imp1_4ya_lag1 = "FFB price signal, 4 year average (lagged)",
+                 wa_ffb_price_imp1_5ya = "FFB price signal, 5 year average",
+                 wa_ffb_price_imp1_5ya_lag1 = "FFB price signal, 5 year average (lagged)",
+                 wa_ffb_price_imp1_yoyg_3ya = "FFB price signal y-o-y growth rate, 3 year average",
+                 wa_ffb_price_imp1_yoyg_3ya_lag1 = "FFB price signal y-o-y growth rate, 3 year average (lagged)",
+                 wa_ffb_price_imp1_yoyg_4ya = "FFB price signal y-o-y growth rate, 4 year average",
+                 wa_ffb_price_imp1_yoyg_4ya_lag1 = "FFB price signal y-o-y growth rate, 4 year average (lagged)",
+                 wa_ffb_price_imp1_yoyg_5ya = "FFB price signal y-o-y growth rate, 5 year average",
+                 wa_ffb_price_imp1_yoyg_5ya_lag1 = "FFB price signal y-o-y growth rate, 5 year average (lagged)",
+                 # No time dynamics CPO variables 
+                 wa_cpo_price_imp1_3ya = "CPO price signal, 3 year average",
+                 wa_cpo_price_imp1_3ya_lag1 = "CPO price signal, 3 year average (lagged)",
+                 wa_cpo_price_imp1_4ya = "CPO price signal, 4 year average",
+                 wa_cpo_price_imp1_4ya_lag1 = "CPO price signal, 4 year average (lagged)",
+                 wa_cpo_price_imp1_5ya = "CPO price signal, 5 year average",
+                 wa_cpo_price_imp1_5ya_lag1 = "CPO price signal, 5 year average (lagged)",
+                 wa_cpo_price_imp1_yoyg_3ya = "CPO price signal y-o-y growth rate, 3 year average",
+                 wa_cpo_price_imp1_yoyg_3ya_lag1 = "CPO price signal y-o-y growth rate, 3 year average (lagged)",
+                 wa_cpo_price_imp1_yoyg_4ya = "CPO price signal y-o-y growth rate, 4 year average",
+                 wa_cpo_price_imp1_yoyg_4ya_lag1 = "CPO price signal y-o-y growth rate, 4 year average (lagged)",
+                 wa_cpo_price_imp1_yoyg_5ya = "CPO price signal y-o-y growth rate, 5 year average",
+                 wa_cpo_price_imp1_yoyg_5ya_lag1 = "CPO price signal y-o-y growth rate, 5 year average (lagged)",
                  # SR FFB variables
                  wa_ffb_price_imp1 = "FFB price signal",
                  wa_ffb_price_imp1_lag1 = "FFB price signal (lagged)",
@@ -492,16 +517,15 @@ for(CR in c(1e4, 3e4, 5e4)){
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 #### COMPARE FIXED-EFFECTS WITH QUASIPOISSON #### 
-# commo <- "ffb"
-# lagged <- TRUE
+# commo <- c("ffb", "cpo")
 # lag_or_not <- "_lag1" # from c("_lag1", "")
+# dynamics <- FALSE
 # short_run <- "unt level" # from c("unt_level", "dev", "yoyg")
-# long_run <- "pya" # from c("pya", "yoyg")
 # island <- c("Sumatra", "Kalimanta", "Papua")
 # catchment_radius <- 3e4
-# outcome_variable <- "lucfip_pixelcount_30th"
+# outcome_variable <- "lucpfip_pixelcount_total"
 # fixed_effects <- c("parcel_id", "year", "parcel_id + year", "parcel_id + island^year", "parcel_id + province^year", "parcel_id + district^year")
-# x_pya <- 4 # 2, 3 or 4 
+# x_pya <- 4 # 2, 3 or 4
 # imp <- 1
 # controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml")
 # oneway_cluster <- ~parcel_id
@@ -510,9 +534,11 @@ for(CR in c(1e4, 3e4, 5e4)){
 compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
                                    island, # c("Sumatra", "Kalimantan", "Papua", c("Sumatra", "Kalimantan", "Papua"))
                                    outcome_variable, # c("lucfip_pixelcount_30th", "lucfip_pixelcount_60th", "lucfip_pixelcount_90th", "lucfip_pixelcount_intact", "lucfip_pixelcount_degraded", "lucfip_pixelcount_total",)
-                                   imp, # c(1,2)
+                                   dynamics, # TRUE or FALSE
                                    commo, # c("ffb", "cpo", c("ffb", "cpo"))
+                                   yoyg, # TRUE or FALSE 
                                    short_run, # sub or full vector from c("unt level", "yoyg", "dev") 
+                                   imp, # c(1,2)
                                    x_pya, # c(2, 3, 4)
                                    lag_or_not, # c("_lag1", "")
                                    controls, # character vectors of base names of controls (don't specify in their names)
@@ -539,45 +565,80 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
   }
   
   ### Specifications
-  if(length(commo) == 1){
-    if(short_run == "unt level"){
-      regressors <- c(paste0("wa_",commo,"_price_imp",imp,lag_or_not),
-                      paste0("wa_",commo,"_price_imp",imp,"_",x_pya,"pya",lag_or_not))
+  if(dynamics == FALSE){ 
+    # Only the overall effect is investigated then, no short vs. long run
+    # In this case, the variables have name element _Xya_ with X the number of years over which the mean has been 
+    # computed, always including the contemporaneous record. See add_parcel_variables.R
+    short_run <- ""
+    
+    # if we omit one commodity 
+    if(length(commo) == 1){
+      if(yoyg == TRUE){
+        regressors <- paste0("wa_",commo,"_price_imp",imp,"_yoyg_",x_pya+1,"ya",lag_or_not)
+      }else{
+        regressors <- paste0("wa_",commo,"_price_imp",imp,"_",x_pya+1,"ya",lag_or_not)
+      }
     }
-    if(short_run == "yoyg"){
-      regressors <- c(paste0("wa_",commo,"_price_imp",imp,"_yoyg",lag_or_not),
-                      paste0("wa_",commo,"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not))
-    }
-    if(short_run == "dev"){
-      regressors <- c(paste0("wa_",commo,"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not),
-                      paste0("wa_",commo,"_price_imp",imp,"_",x_pya,"pya",lag_or_not))
+    # if we don't omit a commodity. 
+    if(length(commo) == 2){
+      if(yoyg == TRUE){
+        regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_yoyg_",x_pya+1,"ya",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_yoyg_",x_pya+1,"ya",lag_or_not))
+
+      }else{
+        regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya+1,"ya",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya+1,"ya",lag_or_not)) 
+      }
     }
   }
   
-  if(length(commo) == 2){
-    if(short_run == "unt level"){
-      regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,lag_or_not),
-                      paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya,"pya",lag_or_not),
-                      paste0("wa_",commo[2],"_price_imp",imp,lag_or_not),
-                      paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya,"pya",lag_or_not))
+  if(dynamics == TRUE){ 
+    
+    if(length(commo) == 1){
+      if(yoyg == TRUE){
+          regressors <- c(paste0("wa_",commo,"_price_imp",imp,"_yoyg",lag_or_not), # SR measure
+                          paste0("wa_",commo,"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not)) # LR measure          
+      }
+      if(yoyg == FALSE){
+        if(short_run == "unt level"){
+          regressors <- c(paste0("wa_",commo,"_price_imp",imp,lag_or_not), # SR measure
+                          paste0("wa_",commo,"_price_imp",imp,"_",x_pya,"pya",lag_or_not)) # LR measure
+        }
+        if(short_run == "dev"){
+          regressors <- c(paste0("wa_",commo,"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not), # SR measure
+                          paste0("wa_",commo,"_price_imp",imp,"_",x_pya,"pya",lag_or_not)) # LR measure
+        }  
+      }
     }
-    if(short_run == "yoyg"){
-      regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_yoyg",lag_or_not),
-                      paste0("wa_",commo[1],"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not),
-                      paste0("wa_",commo[2],"_price_imp",imp,"_yoyg",lag_or_not),
-                      paste0("wa_",commo[2],"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not))
-    }
-    if(short_run == "dev"){
-      regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not),
-                      paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya,"pya",lag_or_not),
-                      paste0("wa_",commo[2],"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not),
-                      paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya,"pya",lag_or_not))
+  
+    if(length(commo) == 2){
+      if(yoyg == TRUE){
+        regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_yoyg",lag_or_not),
+                        paste0("wa_",commo[1],"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_yoyg",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not))    
+      }
+      if(yoyg == FALSE){
+        if(short_run == "unt level"){
+          regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,lag_or_not),# FFB SR measure
+                          paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya,"pya",lag_or_not), # FFB LR measure 
+                          paste0("wa_",commo[2],"_price_imp",imp,lag_or_not),# CPO SR measure
+                          paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya,"pya",lag_or_not)) # CPO LR measure 
+        }
+        if(short_run == "dev"){
+          regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not),
+                          paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya,"pya",lag_or_not),
+                          paste0("wa_",commo[2],"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not),
+                          paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya,"pya",lag_or_not))
+        }
+      }
     }
   }
   
   # list to be filled with formulae of different fixed-effect models
   fe_model_list <- list() 
   
+  # list model formulae with different fixed effects
   for(fe in fixed_effects){
     fe_model_list[[match(fe, fixed_effects)]] <- as.formula(paste0(outcome_variable,
                                                                 " ~ ",
@@ -687,25 +748,28 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
 # "All" islands
 ISL <- c("Sumatra", "Kalimanta", "Papua")
 OV <- "lucpfip_pixelcount_total"
-CR <- 3e4
-for(CR in c(3e4, 5e4)){
-   for(SR in c("unt level", "yoyg")){
+CR <- 5e4
+for(YOYG in c(0, 1)){ # put this first because these are not comaparable measures and hence coeff. 
+  for(CR in c(3e4, 5e4)){
+   #for(SR in c("unt level", "dev")){
      for(XPYA in c(2, 3, 4)){
       compare_fe_all_islands(catchment_radius = CR, 
                          island = ISL,
                          outcome_variable = OV,
+                         dynamics = FALSE,
+                         commo = c("ffb"), 
+                         yoyg = YOYG,
+                         short_run = SR, # does not matter if dynamics == FALSE
                          imp = 1,
-                         commo = c("cpo"), 
-                         short_run = SR,
                          x_pya = XPYA,
-                         lag_or_not = "_lag1",
+                         lag_or_not = "", # bien vérifier ça !  
                          controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml"),
                          fixed_effects = c("parcel_id", "year", "parcel_id + year", "parcel_id + island^year", "parcel_id + province^year", "parcel_id + district^year"),
                          oneway_cluster = ~parcel_id)
-    }
-  }
+     }
+   }
+ #}
 }
-
 
 # Run per island
 for(ISL in c("Sumatra", "Kalimanta", "Papua")){

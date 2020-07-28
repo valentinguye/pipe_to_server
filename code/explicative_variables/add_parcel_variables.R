@@ -395,12 +395,25 @@ for(catchment_radius in catchment_radiuseS){
   
   for(voi in variables){
     
-    ## Past-year averages (2, 3 and 4 years) - LONG RUN MEASURE - 
-    
     for(py in c(2,3,4)){
+      
+      ## Past-year averages (2, 3 and 4 years) - LONG RUN MEASURE - 
       parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_lag",c(1:py))], na.rm = TRUE)
       parcels[is.nan(parcels$newv),"newv"] <- NA
       colnames(parcels)[colnames(parcels)=="newv"] <- paste0(voi,"_",py,"pya")
+      
+      # lag the past year average (useful if we use those per se. as measures of LR price signal)
+      # note that 3pya_lag1 is different from 4pya. 
+      parcels <- dplyr::arrange(parcels, parcel_id, year)
+      parcels <- DataCombine::slide(parcels,
+                                    Var = paste0(voi,"_",py,"pya"), 
+                                    TimeVar = "year",
+                                    GroupVar = "parcel_id",
+                                    NewVar = paste0(voi,"_",py,"pya_lag1"),
+                                    slideBy = -1, 
+                                    keepInvalid = TRUE)  
+      parcels <- dplyr::arrange(parcels, parcel_id, year)
+      
       
       ## and absolute deviation - SHORT RUN MEASURE -
       parcels <- mutate(parcels,
@@ -423,17 +436,30 @@ for(catchment_radius in catchment_radiuseS){
                                   keepInvalid = TRUE)  
       parcels <- dplyr::arrange(parcels, parcel_id, year)
       
-      # lag also just the past year average (useful if we use those per se. as measures of LR price signal)
-      # note that 3pya_lag1 is different from 4pya. 
+      ## and mean of contemporaneous and pya - OVERALL MEASURE - 
+      
+      # note that we add voi column (not lagged) in the row mean
+      parcels$newv <- rowMeans(x = parcels[,c(voi, paste0(voi,"_lag",c(1:py)))], na.rm = TRUE)
+      parcels[is.nan(parcels$newv),"newv"] <- NA
+      # note that we name it ya (year average) and not past year average (pya). It the average of past years AND
+      # contemporaneous obs..
+      # When e.g. the looping variable py = 2, then pya are computed as averages of t-1 and t-2 values and
+      # ya are computed as averages of t, t-1 and t-2 values. 
+      # Coherently, the names of ya variables have _3ya_ (the py+1) to reflect the average being made over 3 years.    
+      colnames(parcels)[colnames(parcels)=="newv"] <- paste0(voi,"_",py+1,"ya")    
+      
+      # and lag it
       parcels <- dplyr::arrange(parcels, parcel_id, year)
       parcels <- DataCombine::slide(parcels,
-                                    Var = paste0(voi,"_",py,"pya"), 
+                                    Var = paste0(voi,"_",py+1,"ya"), 
                                     TimeVar = "year",
                                     GroupVar = "parcel_id",
-                                    NewVar = paste0(voi,"_",py,"pya_lag1"),
+                                    NewVar = paste0(voi,"_",py+1,"ya_lag1"),
                                     slideBy = -1, 
                                     keepInvalid = TRUE)  
       parcels <- dplyr::arrange(parcels, parcel_id, year)
+      
+      
     }
     
     
@@ -481,6 +507,32 @@ for(catchment_radius in catchment_radiuseS){
                                   slideBy = -1, 
                                   keepInvalid = TRUE)  
     parcels <- dplyr::arrange(parcels, parcel_id, year)
+    
+    
+    ## contemporaneous AND pya yoyg mean - OVERALLMEASURE -   
+    
+    # note that we add voi column (not lagged) in the row mean
+    parcels$newv <- rowMeans(x = parcels[,c(paste0(voi,"_yoyg"), paste0(voi,"_yoyg_lag",c(1:py)))], na.rm = TRUE)
+    parcels[is.nan(parcels$newv),"newv"] <- NA
+    # note that we name it ya (year average) and not past year average (pya). It the average of past years AND
+    # contemporaneous obs..
+    # When e.g. the looping variable py = 2, then pya are computed as averages of t-1 and t-2 values and
+    # ya are computed as averages of t, t-1 and t-2 values. 
+    # Coherently, the names of ya variables have _3ya_ (the py+1) to reflect the average being made over 3 years.    
+    colnames(parcels)[colnames(parcels)=="newv"] <- paste0(voi,"_yoyg_",py+1,"ya")
+
+    
+    # Lag by one year
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+    parcels <- DataCombine::slide(parcels,
+                                  Var = paste0(voi,"_yoyg_",py+1,"ya"), 
+                                  TimeVar = "year",
+                                  GroupVar = "parcel_id",
+                                  NewVar = paste0(voi,"_yoyg_",py+1,"ya_lag1"),
+                                  slideBy = -1, 
+                                  keepInvalid = TRUE)  
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+    
     }
   }  
 
@@ -489,19 +541,23 @@ for(catchment_radius in catchment_radiuseS){
                                     catchment_radius/1000,"CR.rds")))  
 }
 
-# 
-# voi <- "wa_ffb_price_imp1"
-# View(parcels[parcels$parcel_id==16500,c("parcel_id", "year",
-#                                         voi,#
-#                                         paste0(voi,"_lag",c(1:3)),#
-#                                         paste0(voi,"_3pya"),#
-#                                         paste0(voi,"_3pya_lag1"),#
-#                                         paste0(voi,"_dev_3pya"),#
-#                                         paste0(voi,"_dev_3pya_lag1"),#
-#                                         paste0(voi,"_yoyg"),#
-#                                         paste0(voi,"_yoyg_lag", c(1:3)),#
-#                                         paste0(voi,"_yoyg_3pya"),#
-#                                         paste0(voi,"_yoyg_3pya_lag1"))])#
+
+voi <- "wa_ffb_price_imp1"
+View(parcels[parcels$parcel_id==16500,c("parcel_id", "year",
+                                        voi,#
+                                        paste0(voi,"_lag",c(1:3)),#
+                                        paste0(voi,"_4ya"),
+                                        paste0(voi,"_4ya_lag1"),
+                                        paste0(voi,"_3pya"),#
+                                        paste0(voi,"_3pya_lag1"),#
+                                        paste0(voi,"_dev_3pya"),#
+                                        paste0(voi,"_dev_3pya_lag1"),#
+                                        paste0(voi,"_yoyg"),#
+                                        paste0(voi,"_yoyg_lag", c(1:3)),#
+                                        paste0(voi,"_yoyg_4ya"),
+                                        paste0(voi,"_yoyg_4ya_lag1"),
+                                        paste0(voi,"_yoyg_3pya"),#
+                                        paste0(voi,"_yoyg_3pya_lag1"))])#
 
 
   
