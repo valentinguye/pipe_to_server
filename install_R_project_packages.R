@@ -32,7 +32,8 @@ neededPackages <- c("data.table", "dplyr", "plyr", "Hmisc", "sjmisc", "stringr",
                     "doParallel", "foreach", "parallel", "snow", 
                     "knitr", 
                     "DataCombine", 
-                    "fixest", "modelsummary")
+                    "fixest", "modelsummary",
+                    "ggplot2")
 
 # Note that from ?renv::restore 
 # "Any required recursive dependencies of the requested packages will be restored as well."
@@ -107,6 +108,7 @@ if(FALSE){
   library(DataCombine)
   library(fixest)
   library(modelsummary)
+  library(ggplot2)
 }
 
 # If new packages are needed along the project data processing workflow, one should: 

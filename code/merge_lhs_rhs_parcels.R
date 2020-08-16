@@ -80,41 +80,86 @@ RHS <-  readRDS(file.path(paste0("temp_data/processed_parcels/parcels_panel_fina
 # MERGE
 # years 1998 - 2000 from RHS will not match, we don't need to keep them because the information 
 # from these years is captured in add_parcel_variables.R within lag variables. Hence all = FALSE
-final <- base::merge(LHS, RHS, by = c("parcel_id", "year"), all = FALSE)  
+parcels <- base::merge(LHS, RHS, by = c("parcel_id", "year"), all = FALSE)  
 
-# add outcome variable lags
 
-### One year lags of outcome variables
-outcome_variables <- c("lucpfip_ha_intact", "lucpfip_ha_degraded", "lucpfip_ha_total",
-                       "lucpfip_pixelcount_intact", "lucpfip_pixelcount_degraded", "lucpfip_pixelcount_total",
-                       "lucfip_ha_30th", "lucfip_ha_60th", "lucfip_ha_90th", 
-                       "lucfip_pixelcount_30th", "lucfip_pixelcount_60th", "lucfip_pixelcount_90th")
+
+
+### OUTCOME VARIABLE TIME DYNAMICS
+
+# outcome_variables <- c("lucpfip_ha_intact", "lucpfip_ha_degraded", "lucpfip_ha_total",
+#                        "lucpfip_pixelcount_intact", "lucpfip_pixelcount_degraded", "lucpfip_pixelcount_total",
+#                        "lucfip_ha_30th", "lucfip_ha_60th", "lucfip_ha_90th", 
+#                        "lucfip_pixelcount_30th", "lucfip_pixelcount_60th", "lucfip_pixelcount_90th")
+
+# retirer cette ligne à la fin, mais pour l'instant ça fait gagner du temps, on a pas besoin de toutes les autres
+outcome_variables <- "lucpfip_pixelcount_total"
 
 for(voi in outcome_variables){
-  final <- dplyr::arrange(final, parcel_id, year)
-  final <- DataCombine::slide(final,
-                                Var = voi, 
-                                TimeVar = "year",
-                                GroupVar = "parcel_id",
-                                NewVar = paste0(voi,"_lag",1),
-                                slideBy = -1, 
-                                keepInvalid = TRUE)
-  final <- dplyr::arrange(final, parcel_id, year)
+  ## different lags
+  for(lag in c(1:4)){
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+    parcels <- DataCombine::slide(parcels,
+                                  Var = voi, 
+                                  TimeVar = "year",
+                                  GroupVar = "parcel_id",
+                                  NewVar = paste0(voi,"_lag",lag),
+                                  slideBy = -lag, 
+                                  keepInvalid = TRUE)
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+  }
+  
+  
+  for(py in c(2,3,4)){
+    ## Past-year average (2, 3 and 4 years) 
+    parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_lag",c(1:py))], na.rm = FALSE)
+    parcels[is.nan(parcels$newv),"newv"] <- NA
+    colnames(parcels)[colnames(parcels)=="newv"] <- paste0(voi,"_",py,"pya")
+    
+    # Lag it
+    # note that 3pya_lag1 is different from 4pya. 
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+    parcels <- DataCombine::slide(parcels,
+                                  Var = paste0(voi,"_",py,"pya"), 
+                                  TimeVar = "year",
+                                  GroupVar = "parcel_id",
+                                  NewVar = paste0(voi,"_",py,"pya_lag1"),
+                                  slideBy = -1, 
+                                  keepInvalid = TRUE)  
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+    
+    ## YOY growth rate
+    parcels <- mutate(parcels,
+                      !!as.symbol(paste0(voi,"_yoyg")) := 100*(!!as.symbol(paste0(voi)) - 
+                                                               !!as.symbol(paste0(voi,"_lag1"))) /
+                                                               !!as.symbol(paste0(voi,"_lag1")))
+    # lag it
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+    parcels <- DataCombine::slide(parcels,
+                                  Var = paste0(voi,"_yoyg"), 
+                                  TimeVar = "year",
+                                  GroupVar = "parcel_id",
+                                  NewVar = paste0(voi,"_yoyg_lag1"),
+                                  slideBy = -1, 
+                                  keepInvalid = TRUE)  
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+  }
 }
 
-# some arrangements
-final <- dplyr::arrange(final, parcel_id, year)
-row.names(final) <- seq(1,nrow(final))
+  
+## some arrangements
+parcels <- dplyr::arrange(parcels, parcel_id, year)
+row.names(parcels) <- seq(1,nrow(parcels))
 
 
-saveRDS(final, file.path(paste0("temp_data/panel_parcels_ip_final_",
+saveRDS(parcels, file.path(paste0("temp_data/panel_parcels_ip_final_",
                                 parcel_size/1000,"km_",
                                 catchment_radius/1000,"CR.rds")))  
 
 # this does not write the largest data frames (catchment_radius of 50km)
 # (Erreur : Error in libxlsxwriter: 'Worksheet row or column index out of range.')
 # run it to get the two other ones in xlsx format still. 
-# write_xlsx(final, file.path(paste0("temp_data/panel_parcels_ip_final_",
+# write_xlsx(parcels, file.path(paste0("temp_data/panel_parcels_ip_final_",
 #                                   parcel_size/1000,"km_",
 #                                   catchment_radius/1000,"CR.xlsx")))  
 

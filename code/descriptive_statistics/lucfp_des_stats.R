@@ -714,7 +714,7 @@ for(col in c(1:6)){
                                                 accu_lucfp["Papua", col])
 }
 
-# convert the sum value from number of pixels of resolution 27.8 by 27.6 meters (i.e. ~767.29 square meters) to million hectares 
+# convert the sum value from number of pixels of resolution 27.8 by 27.6 meters (i.e. ~767.29 square meters) to thousand hectares 
 pixel_area <- (27.8*27.6)/(1e7) # 1e10 is the convertion factor between a square meter and a THOUSAND hectare.  
 
 accu_lucfp <- accu_lucfp*pixel_area

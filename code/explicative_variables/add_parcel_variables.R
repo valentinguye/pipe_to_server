@@ -312,7 +312,7 @@ for(catchment_radius in catchment_radiuseS){
 
 
 #### BASELINE FOREST EXTENT VARIABLES AND TIME DYNAMICS VARIABLES ####
-catchment_radiuseS <- c(1e4, 3e4, 5e4)#
+catchment_radiuseS <- c(1e4, 3e4, 5e4)# 
 for(catchment_radius in catchment_radiuseS){ 
   parcels <- readRDS(file.path(paste0("temp_data/processed_parcels/parcels_panel_geovars_",
                                                   parcel_size/1000,"km_",
@@ -352,7 +352,7 @@ for(catchment_radius in catchment_radiuseS){
   ### Simple lags and leads on a large set of variables
   variables <- c("wa_ffb_price_imp1", "wa_ffb_price_imp2", 
                 "wa_cpo_price_imp1", "wa_cpo_price_imp2", "wa_prex_cpo_imp1","wa_prex_cpo_imp2",       
-                "wa_pko_price_imp1",       "wa_pko_price_imp2",       "wa_prex_pko_imp1",        "wa_prex_pko_imp2",       
+                #"wa_pko_price_imp1",       "wa_pko_price_imp2",       "wa_prex_pko_imp1",        "wa_prex_pko_imp2",       
                 "wa_pct_own_cent_gov_imp", "wa_pct_own_loc_gov_imp",  "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",     
                 #"wa_concentration_10",     "wa_concentration_30", "wa_concentration_50",     
                 "n_reachable_ibs", "n_reachable_uml", "n_reachable_ibsuml",   "sample_coverage")
@@ -386,19 +386,19 @@ for(catchment_radius in catchment_radiuseS){
     # } 
   }
   
-  parcels1 <- parcels
-
+  #parcels1 <- parcels
+  
+  
   ### Operations relating contemporaneous to past information - on prices only
   variables <- c("wa_ffb_price_imp1", "wa_ffb_price_imp2", 
-                 "wa_cpo_price_imp1", "wa_cpo_price_imp2",        
-                 "wa_pko_price_imp1", "wa_pko_price_imp2")
+                 "wa_cpo_price_imp1", "wa_cpo_price_imp2") #,"wa_pko_price_imp1", "wa_pko_price_imp2"
   
   for(voi in variables){
     
     for(py in c(2,3,4)){
       
       ## Past-year averages (2, 3 and 4 years) - LONG RUN MEASURE - 
-      parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_lag",c(1:py))], na.rm = TRUE)
+      parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_lag",c(1:py))], na.rm = FALSE)
       parcels[is.nan(parcels$newv),"newv"] <- NA
       colnames(parcels)[colnames(parcels)=="newv"] <- paste0(voi,"_",py,"pya")
       
@@ -439,7 +439,7 @@ for(catchment_radius in catchment_radiuseS){
       ## and mean of contemporaneous and pya - OVERALL MEASURE - 
       
       # note that we add voi column (not lagged) in the row mean
-      parcels$newv <- rowMeans(x = parcels[,c(voi, paste0(voi,"_lag",c(1:py)))], na.rm = TRUE)
+      parcels$newv <- rowMeans(x = parcels[,c(voi, paste0(voi,"_lag",c(1:py)))], na.rm = FALSE)
       parcels[is.nan(parcels$newv),"newv"] <- NA
       # note that we name it ya (year average) and not past year average (pya). It the average of past years AND
       # contemporaneous obs..
@@ -473,7 +473,7 @@ for(catchment_radius in catchment_radiuseS){
                                                                !!as.symbol(paste0(voi,"_lag1"))) /
                                                                !!as.symbol(paste0(voi,"_lag1")))
                         
-    ## Lagged yoyg (this is only a step)
+    ## Lagged yoyg 
     # (the first lag is invalid for at least two first records of each parcel_id;    
     # the fourth lag is invalid for at least 5 first records)
     for(lag in c(1:4)){
@@ -491,7 +491,7 @@ for(catchment_radius in catchment_radiuseS){
     
     ## past-years averaged yoyg - LONG RUN MEASURE - 
     for(py in c(2,3,4)){
-      parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_yoyg_lag",c(1:py))], na.rm = TRUE)
+      parcels$newv <- rowMeans(x = parcels[,paste0(voi,"_yoyg_lag",c(1:py))], na.rm = FALSE)
       # treat NaNs that arise from means over only NAs when na.rm = T 
       parcels[is.nan(parcels$newv),"newv"] <- NA
       colnames(parcels)[colnames(parcels)=="newv"] <- paste0(voi,"_yoyg_",py,"pya")
@@ -512,7 +512,7 @@ for(catchment_radius in catchment_radiuseS){
     ## contemporaneous AND pya yoyg mean - OVERALLMEASURE -   
     
     # note that we add voi column (not lagged) in the row mean
-    parcels$newv <- rowMeans(x = parcels[,c(paste0(voi,"_yoyg"), paste0(voi,"_yoyg_lag",c(1:py)))], na.rm = TRUE)
+    parcels$newv <- rowMeans(x = parcels[,c(paste0(voi,"_yoyg"), paste0(voi,"_yoyg_lag",c(1:py)))], na.rm = FALSE)
     parcels[is.nan(parcels$newv),"newv"] <- NA
     # note that we name it ya (year average) and not past year average (pya). It the average of past years AND
     # contemporaneous obs..
@@ -545,9 +545,13 @@ for(catchment_radius in catchment_radiuseS){
 voi <- "wa_ffb_price_imp1"
 View(parcels[parcels$parcel_id==16500,c("parcel_id", "year",
                                         voi,#
-                                        paste0(voi,"_lag",c(1:3)),#
+                                        paste0(voi,"_lag",c(1:4)),#
+                                        paste0(voi,"_3ya"),
+                                        paste0(voi,"_3ya_lag1"),
                                         paste0(voi,"_4ya"),
                                         paste0(voi,"_4ya_lag1"),
+                                        paste0(voi,"_5ya"),
+                                        paste0(voi,"_5ya_lag1"),
                                         paste0(voi,"_3pya"),#
                                         paste0(voi,"_3pya_lag1"),#
                                         paste0(voi,"_dev_3pya"),#

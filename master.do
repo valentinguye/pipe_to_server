@@ -195,9 +195,8 @@ rsource using "install_R_project_packages.R"
 	* output 	temp_data/processed_UML/mills_estyear_clean_modified.dta
 	*			temp_data/processed_UML/UML_valentin_imputed_est_year.dta
 
+
 	** Compute concentration variable for all UML mills. 
-
-
 	* /!\ 10:40 hours to be executed.
 	rsource using "code/explicative_variables/mill_concentration.R"
 	* input 	temp_data/processed_UML/UML_valentin_imputed_est_year.dta

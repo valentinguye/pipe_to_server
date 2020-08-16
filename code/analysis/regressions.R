@@ -16,7 +16,8 @@ neededPackages = c("tibble", "plyr", "dplyr", "data.table",
                    "raster", "rgdal",  "sp", "sf",
                    "knitr", 
                    "fixest", 
-                   "modelsummary")
+                   "modelsummary", 
+                   "ggplot2")
 # Install them in their project-specific versions
 renv::restore(packages = neededPackages)
 
@@ -132,6 +133,7 @@ setFixest_dict(c(parcel_id = "grid cell",
                  wa_cpo_price_imp1_yoyg_4pya = "CPO price signal y-o-y growth rate, 4 past year average",
                  wa_cpo_price_imp1_yoyg_4pya_lag1 = "CPO price signal y-o-y growth rate, 4 past year average (lagged)",
                  ## controls
+                 lucpfip_pixelcount_total_lag1 = "LUCPFIP (pixels, lagged)",
                  n_reachable_uml = "# reachable UML mills",
                  n_reachable_uml_lag1 = "# reachable UML mills (lagged)",
                  wa_pct_own_cent_gov_imp = "Local government mill ownership (pct.)",
@@ -147,8 +149,8 @@ setFixest_dict(c(parcel_id = "grid cell",
 
 catchment_radius <- 5e4
 island <- c("Sumatra", "Kalimantan", "Papua")
-outcome_variable <- "lucfip_pixelcount_30th"
-commo <- "both"
+outcome_variable <- "lucpfip_pixelcount_total"
+commo <- c("ffb","cpo")
 dynamics <- "both"
 
 compare_estimators <- function(catchment_radius, island, outcome_variable, commo, dynamics){
@@ -517,18 +519,18 @@ for(CR in c(1e4, 3e4, 5e4)){
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 #### COMPARE FIXED-EFFECTS WITH QUASIPOISSON #### 
-# commo <- c("ffb", "cpo")
-# lag_or_not <- "_lag1" # from c("_lag1", "")
-# dynamics <- FALSE
-# short_run <- "unt level" # from c("unt_level", "dev", "yoyg")
-# island <- c("Sumatra", "Kalimanta", "Papua")
-# catchment_radius <- 3e4
-# outcome_variable <- "lucpfip_pixelcount_total"
-# fixed_effects <- c("parcel_id", "year", "parcel_id + year", "parcel_id + island^year", "parcel_id + province^year", "parcel_id + district^year")
-# x_pya <- 4 # 2, 3 or 4
-# imp <- 1
-# controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml")
-# oneway_cluster <- ~parcel_id
+catchment_radius <- 3e4
+island <- c("Sumatra", "Kalimantan", "Papua")
+outcome_variable <- "lucpfip_pixelcount_total"
+dynamics <- FALSE
+commo <- c("ffb", "cpo")
+yoyg <- FALSE
+short_run <- "unt level" # from c("unt_level", "dev", "yoyg")
+imp <- 1
+x_pya <- 2 # 2, 3 or 4
+lag_or_not <- "_lag1" # from c("_lag1", "")
+controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml")
+oneway_cluster <- ~parcel_id
 
 
 compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
@@ -542,12 +544,12 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
                                    x_pya, # c(2, 3, 4)
                                    lag_or_not, # c("_lag1", "")
                                    controls, # character vectors of base names of controls (don't specify in their names)
-                                   fixed_effects, # character vector of fixed effect specifications to be compared in a single regression table. Should be given in a fixest format. e.g.:  c("parcel_id", "year", "parcel_id + year", "parcel_id + island^year", "parcel_id + province^year", "parcel_id + district^year")
+                                   weights,
                                    oneway_cluster # formula if clusters are to be specified (see argument cluster in ?fixest::etable)
                                    ){
   
   
-  ### 30% canopy density forest 
+  # DATA
   d <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
                                 parcel_size/1000,"km_",
                                 catchment_radius/1000,"CR.rds")))
@@ -569,7 +571,7 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
     # Only the overall effect is investigated then, no short vs. long run
     # In this case, the variables have name element _Xya_ with X the number of years over which the mean has been 
     # computed, always including the contemporaneous record. See add_parcel_variables.R
-    short_run <- ""
+    #short_run <- ""
     
     # if we omit one commodity 
     if(length(commo) == 1){
@@ -592,6 +594,7 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
     }
   }
   
+  # if, on the other hand, we want to disentangle the short run effects from the long run's. 
   if(dynamics == TRUE){ 
     
     if(length(commo) == 1){
@@ -638,6 +641,21 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
   # list to be filled with formulae of different fixed-effect models
   fe_model_list <- list() 
   
+  # character vector of fixed effect specifications to be compared in a single regression table. 
+  # Should be given in a fixest format.
+  if(length(island) == 1){
+    fixed_effects <- c("parcel_id", 
+                       "parcel_id + year", 
+                       "parcel_id + province^year", 
+                       "parcel_id + district^year")
+  }else{
+    fixed_effects <- c("parcel_id", 
+                       "parcel_id + year", 
+                       "parcel_id + island^year", 
+                       "parcel_id + province^year", 
+                       "parcel_id + district^year") 
+  } 
+  
   # list model formulae with different fixed effects
   for(fe in fixed_effects){
     fe_model_list[[match(fe, fixed_effects)]] <- as.formula(paste0(outcome_variable,
@@ -649,22 +667,36 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
                                                                 fe))
   }
   
-  # run quasipoisson regression for each fixed-effect model 
-  fe_reg_list <- lapply(fe_model_list, fixest::feglm,
-                        data = d, 
-                        family = "quasipoisson", 
-                        notes= FALSE)
+# run quasipoisson regression for each fixed-effect model 
+  if(weights == TRUE){
+    var_weights <- d$sample_coverage_lag1/100 
+    fe_reg_list <- lapply(fe_model_list, fixest::feglm,
+                          data = d, 
+                          family = "quasipoisson", 
+                          notes = FALSE, 
+                          weights = var_weights)
+  }else{
+    fe_reg_list <- lapply(fe_model_list, fixest::feglm,
+                          data = d, 
+                          family = "quasipoisson", 
+                          notes = FALSE)
+  }
+
   
   
   ### Return tables
   # title
   if(length(island) == 1){
     table_title <- paste0("Fixed-effect comparisons, ",island, 
-                          " catchment radius of ", catchment_radius/1000,"km, ") 
+                          " catchment radius of ", catchment_radius/1000,"km ") 
   }else{
     table_title <- paste0("Fixed-effect comparisons, all islands, catchment radius of ", 
-                          catchment_radius/1000,"km, ") 
+                          catchment_radius/1000,"km ") 
   }
+  
+  # esttable(fe_reg_list,            
+  #          se = "cluster", 
+  #          drop = c("own", "reachable"))
   
   ## ONE WAY CLUSTERING
   if(length(island)>1){
@@ -675,7 +707,7 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
            # file = table_file, 
            # replace = TRUE,
            title = table_title,
-           # subtitles = c("Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM"),
+           # subtitles = c("FE: grid cell", "FE: year", "FE: grid cell + year", "FE: grid cell + island*year", "FE: grid cell + province*year", "FE: grid cell + district*year"),
            family = TRUE,
            drop = c("own", "reachable"),
            coefstat = "confint",
@@ -692,6 +724,7 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
            # replace = TRUE,
            title = table_title,
            # subtitles = c("Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM", "Quasi-Poisson GLM"),
+           # subtitles = c("FE: grid cell", "FE: year", "FE: grid cell + year", "FE: grid cell + island*year", "FE: grid cell + province*year", "FE: grid cell + district*year"),
            family = TRUE,
            drop = c("own", "reachable"),
            coefstat = "confint",
@@ -746,52 +779,439 @@ compare_fe_all_islands <- function(catchment_radius, # c(1e4, 3e4, 5e4)
 
 # Run on all islands
 # "All" islands
-ISL <- c("Sumatra", "Kalimanta", "Papua")
+ISL <- c("Sumatra", "Kalimantan", "Papua")
 OV <- "lucpfip_pixelcount_total"
-CR <- 5e4
-for(YOYG in c(0, 1)){ # put this first because these are not comaparable measures and hence coeff. 
-  for(CR in c(3e4, 5e4)){
-   #for(SR in c("unt level", "dev")){
-     for(XPYA in c(2, 3, 4)){
-      compare_fe_all_islands(catchment_radius = CR, 
-                         island = ISL,
-                         outcome_variable = OV,
-                         dynamics = FALSE,
-                         commo = c("ffb"), 
-                         yoyg = YOYG,
-                         short_run = SR, # does not matter if dynamics == FALSE
-                         imp = 1,
-                         x_pya = XPYA,
-                         lag_or_not = "", # bien vérifier ça !  
-                         controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml"),
-                         fixed_effects = c("parcel_id", "year", "parcel_id + year", "parcel_id + island^year", "parcel_id + province^year", "parcel_id + district^year"),
-                         oneway_cluster = ~parcel_id)
-     }
-   }
- #}
-}
+CR <- 3e4
+YOYG <- FALSE
 
-# Run per island
-for(ISL in c("Sumatra", "Kalimanta", "Papua")){
-  for(CR in c(1e4, 3e4, 5e4)){
+ISL <- "Kalimantan"
+
+DYN <- TRUE
+XPYA <- 2
+
+#for(YOYG in c(0, 1)){ # put this first because these are not comaparable measures and hence coeff. 
+#for(CR in c(3e4, 5e4)){
+  #for(SR in c("unt level", "dev")){
+for(ISL in c("Sumatra", "Kalimantan")){
+for(DYN in c(0,1)){
+  for(XPYA in c(2, 3, 4)){
     compare_fe_all_islands(catchment_radius = CR, 
-                           island = ISL)
+                           island = ISL,
+                           outcome_variable = OV,
+                           dynamics = DYN,
+                           commo = c("ffb", "cpo"), 
+                           yoyg = YOYG,
+                           short_run = "unt level", # does not matter if dynamics == FALSE
+                           imp = 1,
+                           x_pya = XPYA,
+                           lag_or_not = "_lag1", # bien vérifier ça !  
+                           controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml"),
+                           weights = FALSE,
+                           oneway_cluster = ~parcel_id)
   }
 }
+} 
+#}
+#}
 
 
 
 
 
+##### DEMAND FOR LUCFP #####
+catchment_radius <- 3e4
+island <- c("Sumatra", "Kalimantan", "Papua")
+island <- "Sumatra"
+outcome_variable <- "lucfip_pixelcount_30th"
+outcome_variable <- "lucpfip_pixelcount_total"
+x_pya <- 3
+lag_or_not <- "_lag1"
+fixed_effects <- "parcel_id + district^year"
+controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml")
+weights <- TRUE
+
+### Prepare the data ### 
+
+  # DATA
+  d <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                parcel_size/1000,"km_",
+                                catchment_radius/1000,"CR.rds")))
+  
+  # subsampling
+  d <- d[d$island %in% island,]
+  
+  if(outcome_variable == "lucpfip_pixelcount_total" | outcome_variable == "lucpfip_ha_total"){
+    d <- d[d$any_pfc2000_total,]
+  }
+  if(outcome_variable == "lucfip_pixelcount_30th" | outcome_variable == "lucfip_ha_30th" |
+     outcome_variable == "lucfip_pixelcount_60th" | outcome_variable == "lucfip_ha_60th" |
+     outcome_variable == "lucfip_pixelcount_90th" | outcome_variable == "lucfip_ha_90th"){
+    d <- d[d$any_fc2000_30th,]
+  }
+
+  ### compute the aggregation factor
+  length(unique(d$parcel_id))*length(unique(d$year)) == nrow(d)
+  
+  years <- unique(d$year)
+  n_parcels_within_cr <- c() 
+  for(t in years){
+  n_parcels_within_cr[[match(t, years)]] <- d[d$year == t & d$n_reachable_uml > 0,] %>% nrow()
+  }
+  aggr_factor <- sum(n_parcels_within_cr)
+  aggr_factor < nrow(d)
+  
+  ### Run the regression ### 
+  
+  # there is no dynamics (distinction btw SR and LR effects) here as we aim at 
+  # estimating the effect of a tax that remains in time. 
+  regressors <- c(paste0("wa_ffb_price_imp1_",x_pya+1,"ya",lag_or_not),
+                  paste0("wa_cpo_price_imp1_",x_pya+1,"ya",lag_or_not)) 
+  
+  
+  fml <- as.formula(paste0(outcome_variable,
+                           " ~ ",
+                           paste0(regressors, collapse = "+"),
+                           " + ",
+                           paste0(paste0(controls,lag_or_not), collapse = "+"),
+                           " | ",
+                           fixed_effects))
+  
+  if(weights == TRUE){
+    var_weights <- d$sample_coverage_lag1/100 
+    results <- fixest::feglm(fml,
+                             data = d, 
+                             family = "quasipoisson", 
+                             notes = FALSE, 
+                             weights = var_weights)
+  }else{
+    results <- fixest::feglm(fml,
+                             data = d, 
+                             family = "quasipoisson", 
+                             notes = TRUE)
+  }
+  
+  ## save coefficients 
+  coeff_ffb <- results$coefficients[paste0("wa_ffb_price_imp1_",x_pya+1,"ya",lag_or_not)] 
+  coeff_cpo <- results$coefficients[paste0("wa_cpo_price_imp1_",x_pya+1,"ya",lag_or_not)]
+  # names(mult_effect_ffb) <- NULL
+  # names(mult_effect_cpo) <- NULL
+  
+  # this is the total number of cells within CR and island, not the the number of cells used for estimation. 
+  # this is matter of external validity.
+  # therefore we read in the dataframes of grid cells within particular catchment radii, 
+  # we adjust for the same restrictions (island and positive baseline forest extent) 
+  # and count the number of parcels
+  
+  # n_cells <- length(unique(d$parcel_id))*length(unique(d$year))
+  #names(n_cells) <- "n_cells"
+  # then, multiply by 15, the number of years, if we want to compare with observed accumulated amouts
+  # or if we want to say about the whole period. 
+  # But keep the cross-sectional length (n_cells) if we want to say something like "each year", or "annually". 
+  
+  
+  ## FITTED VALUE AT THE AVERAGE 
+  covariate_means <- c(sapply(regressors, FUN = function(var){mean(d[,var], na.rm = TRUE)}),
+                       sapply(paste0(controls, lag_or_not), FUN = function(var){mean(d[,var], na.rm = TRUE)}))
+  
+  linear_predictors_atavg <- c()
+  for(i in 1:length(covariate_means)){
+    linear_predictors_atavg[i] <- covariate_means[i]*results$coefficients[i]
+  }
+  # the issue with this is that covariate means are for the whole sample and not just the obs. 
+  # used in the regression. (but is it very different, since those not used in the regression
+  # are not precisely because they are missing and hence don't count in the mean)
+  fitted_value_atavg <- exp(sum(linear_predictors_atavg) + mean(results$sumFE))
+  fitted_value_atavg <- fitted_value_atavg*(27.8*27.6)/(1e7)
+
+  ## FITTED VALUE AT THE MEDIAN 
+  covariate_medians <- c(sapply(regressors, FUN = function(var){median(d[,var], na.rm = TRUE)}),
+                       sapply(paste0(controls, lag_or_not), FUN = function(var){median(d[,var], na.rm = TRUE)}))
+  
+  linear_predictors_atmed <- c()
+  for(i in 1:length(covariate_medians)){
+    linear_predictors_atmed[i] <- covariate_medians[i]*results$coefficients[i]
+  }
+
+  fitted_value_atmed <- exp(sum(linear_predictors_atmed) + median(results$sumFE))
+  fitted_value_atmed <- fitted_value_atmed*(27.8*27.6)/(1e7)
+  
+  ## AVERAGE FITTED VALUE 
+  avg_fitted_value <- mean(results$fitted.values) # this is equal to mean(exp(results$linear.predictors))
+  # it is to say that linear.predictors already encompass the fixed effects.
+  # It's in pixelcount, convert it to thousand hectares
+  avg_fitted_value <- avg_fitted_value*(27.8*27.6)/(1e7)
+  
+  ## AVERAGE ACTUAL OUTCOME
+  ## if we use actual lucpfip and not fitted values
+  avg_lucpfip <- mean(d[,outcome_variable])
+  avg_lucpfip <- avg_lucpfip*(27.8*27.6)/(1e7)
+  
+  ## MARGINAL EFFECTS 
+  # for a premium / tax of USD10/ton FFB (~1/3 of a std.dev) (and rescale to hectares by *1e3)
+  ffb_marginal_effect_avg <- coeff_ffb*avg_fitted_value*1e3*10 # average partial effect
+  ffb_marginal_effect_atavg <- coeff_ffb*fitted_value_atavg*1e3*10 # partial effect at average 
+  ffb_marginal_effect_atmed <- coeff_ffb*fitted_value_atmed*1e3*10 # partial effect at average 
+  ffb_marginal_effect_actual <- coeff_ffb*avg_lucpfip*1e3*10
+  cpo_marginal_effect_avg <- coeff_cpo*avg_fitted_value*1e3*10 # average partial effect
+  cpo_marginal_effect_atavg <- coeff_cpo*fitted_value_atavg*1e3*10 # partial effect at average 
+  cpo_marginal_effect_atmed <- coeff_cpo*fitted_value_atmed*1e3*10 # partial effect at average 
+  cpo_marginal_effect_actual <- coeff_cpo*avg_lucpfip*1e3*10
+  
+  ffb_marginal_effect_avg 
+  ffb_marginal_effect_atavg 
+  ffb_marginal_effect_atmed 
+  ffb_marginal_effect_actual 
+  cpo_marginal_effect_avg 
+  cpo_marginal_effect_atavg 
+  cpo_marginal_effect_atmed 
+  cpo_marginal_effect_actual 
+  
+
+  ######### test manual computation of partial effects at average with mfx package ###################
+  # library(mfx)
+  # fml2 <- lucpfip_pixelcount_total ~ wa_ffb_price_imp1_4ya_lag1 + wa_cpo_price_imp1_4ya_lag1 + 
+  #   wa_pct_own_loc_gov_imp_lag1 + wa_pct_own_nat_priv_imp_lag1 + 
+  #   wa_pct_own_for_imp_lag1 + n_reachable_uml_lag1
+  # 
+  # mfx <- poissonmfx(formula = fml2, 
+  #            data = d,
+  #            atmean = TRUE)
+  # 
+  # results <- fixest::feglm(fml2,
+  #                          data = d, 
+  #                          family = "poisson", 
+  #                          notes = TRUE)
+  # 
+  # # now reproduce exactly the same, manually: 
+  # 
+  # 
+  # coeff_ffb_mfx <- mfx$fit$coefficients[paste0("wa_ffb_price_imp1_",x_pya+1,"ya",lag_or_not)] 
+  # coeff_cpo_mfx <- mfx$fit$coefficients[paste0("wa_cpo_price_imp1_",x_pya+1,"ya",lag_or_not)]
+  # coeff_ffb_fixest <- results$coefficients[paste0("wa_ffb_price_imp1_",x_pya+1,"ya",lag_or_not)] 
+  # coeff_cpo_fixest <- results$coefficients[paste0("wa_cpo_price_imp1_",x_pya+1,"ya",lag_or_not)]
+  # 
+  # # they are not exactly equal 
+  # coeff_ffb_mfx == coeff_ffb_fixest
+  # round(coeff_ffb_mfx, 6) == round(coeff_ffb_fixest,6)
+  # 
+  # ## at average, manually
+  # covariate_means <- c(sapply(regressors, FUN = function(var){mean(d[,var], na.rm = TRUE)}),
+  #                      sapply(paste0(controls, lag_or_not), FUN = function(var){mean(d[,var], na.rm = TRUE)}))
+  # 
+  # # based on mfx (glm)
+  # linear_predictors_mfx <- c()
+  # for(i in 1:length(covariate_means)){
+  #   linear_predictors_mfx[i] <- covariate_means[i]*mfx$fit$coefficients[i+1] # +1 bc of the intercept
+  # }
+  # fitted_value_atavg_mfx <- exp(sum(linear_predictors_mfx) + mfx$fit$coefficients[1]) # linear predictors don't integrate the intercept.
+  # ffb_marginal_effect_atavg_mfx <- coeff_ffb_mfx*fitted_value_atavg_mfx
+  # cpo_marginal_effect_atavg_mfx <- coeff_cpo_mfx*fitted_value_atavg_mfx
+  # 
+  # # based on fixest coeffs
+  # linear_predictors_fixest <- c()
+  # for(i in 1:length(covariate_means)){
+  #   linear_predictors_fixest[i] <- covariate_means[i]*results$coefficients[i+1]
+  # }
+  # 
+  # fitted_value_atavg_fixest <- exp(sum(linear_predictors_fixest) + results$coefficients[1])
+  # ffb_marginal_effect_atavg_fixest <- coeff_ffb_fixest*fitted_value_atavg_fixest
+  # cpo_marginal_effect_atavg_fixest <- coeff_cpo_fixest*fitted_value_atavg_fixest
+  # 
+  # # because coeffs are not exactly equal, linear predictors are not either, nor fitted values and marginal effects
+  # linear_predictors_mfx == linear_predictors_fixest
+  # round(linear_predictors_mfx, 6) == round(linear_predictors_fixest, 6)
+  # fitted_value_atavg_mfx == fitted_value_atavg_fixest
+  # ffb_marginal_effect_atavg_mfx == ffb_marginal_effect_atavg_fixest
+  # round(ffb_marginal_effect_atavg_mfx, 6) == round(ffb_marginal_effect_atavg_fixest, 6)
+  # 
+  # # but this does not explain the gap with the marginal effect directly computed by mfx
+  # mfx$mfxest[1,1] == ffb_marginal_effect_atavg_mfx
+  # round(mfx$mfxest[1,1], 6) == round(ffb_marginal_effect_atavg_mfx,6) # is FALSE
+  # 
+  # mfx <- poissonmfx(formula = fml2, 
+  #            data = d,
+  #            atmean = FALSE)
+  # 
+  # # recover the fitted value at the average from mfx marginal effect
+  # # bc we know the marginal effect at average is the product of the coeff and the fitted value at the average
+  # mfx$mfxest[1,1]/coeff_ffb_mfx == fitted_value_atavg_mfx
+  # # is false, therefore it's really the fitted value at the average that is not computed exactly the same in 
+  # # mfx and manually 
+  # 
+  # ## AVERAGE FITTED VALUE 
+  # avg_fitted_value <- mean(results$fitted.values)
+  # ffb_marginal_effect_avg <- coeff_ffb*avg_fitted_value # average partial effect
+  # cpo_marginal_effect_avg <- coeff_cpo*avg_fitted_value # average partial effect
+  # 
+  # poissonmfx(formula = fml2, 
+  #                   data = d,
+  #                   atmean = FALSE)
+  # 
+  # # so for average partial effect, results are equal. 
+  # # NOT for partial effect at the average... NOW WITH THE INTERCEPT ADDED IT'S VERY SIMILAR, BUT STILL NOT EQUAL !!!
+  # # --> try to compute manually on a balanced panel (remove records that have at least one rhs missing)
+  # # or build a basic balanced df. 
+  # # it's not coeff that differ since for average partial effect it works. 
+  # # voir ce qu'est glm$effects (mfx$fit$effects)
+  # 
+  # 
+  # ### and now with {margins}
+  # library(margins)
+  #### end of test ####
+  
+  
+  ## FFB DEMAND FUNCTIONS
+  ffb_demand_avg <- function(tax){
+    avg_fitted_value*aggr_factor/exp(coeff_ffb*tax)
+  }
+  ffb_demand_atavg <- function(tax){
+    fitted_value_atavg*aggr_factor/exp(coeff_ffb*tax)
+  }
+  ffb_demand_atmed <- function(tax){
+    fitted_value_atmed*aggr_factor/exp(coeff_ffb*tax)
+  }
+  ffb_demand_actual <- function(tax){
+    avg_lucpfip*aggr_factor/exp(coeff_ffb*tax)
+  }
+  
+  ffb_demand_avg(0)
+  ffb_demand_atavg(0)
+  ffb_demand_atmed(0) 
+  ffb_demand_actual(0) 
+  
+  avg_lucpfip*nrow(d) # we get exactly the same amount as the actual accumulated LUCPFIP in table 2. 
+    
+ 
+  
+  # for plotting purpose: 
+  ffb_inv_demand_avg <- function(CF){
+    (1/coeff_ffb)*(log(avg_fitted_value*aggr_factor) - log(CF))
+  }
+  
+  ffb_inv_demand_atavg <- function(CF){
+    (1/coeff_ffb)*(log(fitted_value_atavg*aggr_factor) - log(CF))
+  }
+  
+  ffb_inv_demand_atmed <- function(CF){
+    (1/coeff_ffb)*(log(fitted_value_atmed*aggr_factor) - log(CF))
+  }
+  
+  ffb_inv_demand_actual <- function(CF){
+    (1/coeff_ffb)*(log(avg_lucpfip*aggr_factor) - log(CF))
+  }
+  
+  ggplot(data = data.frame(CF=c(0, ffb_demand_avg(0))), 
+          aes(x=CF)) + 
+          stat_function(fun=ffb_inv_demand_avg)
+
+  ggplot(data = data.frame(CF=c(0, ffb_demand_atavg(0))), 
+         aes(x=CF)) + 
+    stat_function(fun=ffb_inv_demand_atavg)
+  
+  ggplot(data = data.frame(CF=c(0, ffb_demand_atmed(0))), 
+         aes(x=CF)) + 
+    stat_function(fun=ffb_inv_demand_atmed)
+  
+  ggplot(data = data.frame(CF=c(0, ffb_demand_actual(0))), 
+         aes(x=CF)) + 
+    stat_function(fun=ffb_inv_demand_actual) 
+  
+## CPO DEMAND FUNCTIONS
+  cpo_demand_avg <- function(tax){
+    avg_fitted_value*aggr_factor/exp(coeff_cpo*tax)
+  }
+  cpo_demand_atavg <- function(tax){
+    fitted_value_atavg*aggr_factor/exp(coeff_cpo*tax)
+  }
+  cpo_demand_atmed <- function(tax){
+    fitted_value_atmed*aggr_factor/exp(coeff_cpo*tax)
+  }
+  cpo_demand_actual <- function(tax){
+    avg_lucpfip*aggr_factor/exp(coeff_cpo*tax)
+  }
+  
+  cpo_demand_avg(0)
+  cpo_demand_atavg(0)
+  cpo_demand_atmed(0)
+  cpo_demand_actual(0) # we get exactly the same amount as the actual accumulated LUCPFIP in table 2. 
+  
+  
+  
+  # for plotting purpose: 
+  cpo_inv_demand_avg <- function(CF){
+    (1/coeff_cpo)*(log(avg_fitted_value*aggr_factor) - log(CF))
+  }
+  
+  cpo_inv_demand_atavg <- function(CF){
+    (1/coeff_cpo)*(log(fitted_value_atavg*aggr_factor) - log(CF))
+  }
+  
+  cpo_inv_demand_atmed <- function(CF){
+    (1/coeff_cpo)*(log(fitted_value_atmed*aggr_factor) - log(CF))
+  }
+  
+  cpo_inv_demand_actual <- function(CF){
+    (1/coeff_cpo)*(log(avg_lucpfip*aggr_factor) - log(CF))
+  }
+  
+  ggplot(data = data.frame(CF=c(0, cpo_demand_avg(0))), 
+         aes(x=CF)) + 
+    stat_function(fun=cpo_inv_demand_avg) 
+    
+    ggplot(data = data.frame(CF=c(0, cpo_demand_atavg(0))), 
+           aes(x=CF)) + 
+    stat_function(fun=cpo_inv_demand_atavg)
+  
+  ggplot(data = data.frame(CF=c(0, cpo_demand_atmed(0))), 
+         aes(x=CF)) + 
+    stat_function(fun=cpo_inv_demand_atmed)
+  
+  ggplot(data = data.frame(CF=c(0, cpo_demand_actual(0))), 
+         aes(x=CF)) + 
+    stat_function(fun=cpo_inv_demand_actual) 
+  
+
+# effect of a premium of 25$/ton FFB
+ffb_demand_atavg(0) - ffb_demand_atavg(25)
+# effect of a premium of 100$/ton CPO
+cpo_demand_atavg(0) - cpo_demand_atavg(100)
 
 
 
-
-
-
+ 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+## test whether the FE are in linear.predictors 
+# linear.predictors, sumFE and fitted.values all have the same length: the number of obs. used in the reg
+length(results$linear.predictors)==length(results$sumFE)
+length(results$sumFE)==length(results$fitted.values)
 
+# the fitted.values are equal to the exponential of the linear.predictors (here)
+results$linear.predictors[1] 
+results$sumFE[1]
+results$fitted.values[4] == exp(results$linear.predictors[4])
+results$linear.predictors[1] + results$sumFE[1]
+
+fml_nofe <- as.formula(paste0(outcome_variable,
+                              " ~ ",
+                              paste0(regressors, collapse = "+"),
+                              " + ",
+                              paste0(paste0(controls,lag_or_not), collapse = "+")))
+
+results_nofe <- fixest::feglm(fml_nofe,
+                              data = d, 
+                              family = "quasipoisson", 
+                              notes = TRUE)
+length(results_nofe$linear.predictors) - length(results$linear.predictors)
+
+any(results$linear.predictors %in% results_nofe$linear.predictors)
+
+any(results_nofe$linear.predictors %in% results$linear.predictors)
+
+results_nofe$fitted.values[4] == exp(results_nofe$linear.predictors[4])
+
+# so linear predictors are different when there are FE and where there is no. 
+# which means that linear predictors INCLUDE FE. 
 
 if(commo == "ffb" & dynamics == "both-yoyg" & lagged == TRUE){
   
@@ -1379,8 +1799,10 @@ etable(est_f30)
 
 
 
-
-
+# PREMIER SET 126 -31
+# 2EME SET 41.85 - 12
+# 3EME SET 219.15 - 66
+36+123.2+39.6+15.4+4.95
 
 
 
