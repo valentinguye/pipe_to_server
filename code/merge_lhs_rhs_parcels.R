@@ -173,6 +173,17 @@ for(CR in catchment_radiuseS){
 }
 
 
+parcel_size <- 3000
+catchment_radius <- 3e4
+catchment_radiuseS <- c(1e4, 3e4, 5e4) # (in meters)
+for(CR in catchment_radiuseS){
+toc <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                  parcel_size/1000,"km_",
+                                  catchment_radius/1000,"CR.rds")))  
+write.dta(toc, file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                parcel_size/1000,"km_",
+                                catchment_radius/1000,"CR.dta")))
+}
 #### TESTING ZONE #### 
 # names(LHS)  
 # names(RHS)  

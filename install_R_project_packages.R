@@ -32,7 +32,7 @@ neededPackages <- c("data.table", "dplyr", "plyr", "Hmisc", "sjmisc", "stringr",
                     "doParallel", "foreach", "parallel", "snow", 
                     "knitr", 
                     "DataCombine", 
-                    "fixest", "modelsummary",
+                    "fixest", "sandwich", "lmtest",
                     "ggplot2")
 
 # Note that from ?renv::restore 
@@ -107,19 +107,27 @@ if(FALSE){
   #library(ExPanDaR)
   library(DataCombine)
   library(fixest)
-  library(modelsummary)
+  library(sandwich)
+  library(lmtest)
+  library(pglm)
+  library(multiwayvcov)
+  library(clusterSEs)
+  library(clubSandwich)
+  library(boot)
+  library(Countr)
   library(ggplot2)
+  
 }
 
 # If new packages are needed along the project data processing workflow, one should: 
 # 1. install the packages in a user local default library (you may have to chose explicitly which, hence the brackets after default_libraries)
-install.packages("tibble", lib = default_libraries[1])
+install.packages("Countr", lib = default_libraries[1])
 # 2. add 'library(package)' in the list above, and ',"package"' in the neededPackages vector above, and save the present file.
 # 3. perform an implicit (the default) snapshot, that writes to the renv.lock file the packages at
 # the intersection between packages found in the project by renv::dependencies() 
 # (hence the 'library(package)' line from 2. above.) 
 # and packages installed in user default libraries (hence point 1. and the argument library below)
-renv::snapshot(library = default_libraries)
+renv::snapshot(library = default_libraries) 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 

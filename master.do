@@ -316,9 +316,12 @@ rsource using "install_R_project_packages.R"
 		*			temp_data/processed_parcels/wa_panel_parcels_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 
 
+
+
 	/* add information on the number of UML mills that are reachable from each parcel in each year within 10, 30 and 50km. 
 	  and on the share of IBS sample in this total number of reachable UML mills. 
 	  AND add island and district variables, and baseline forest extents variables computed in prepare_2000_forest_extents.R
+	  AND add time series of international and domestic prices and export tax and spreads. 
 	  /!\ ~1h */
 	rsource using "code/explicative_variables/add_parcel_variables.R"	
 		* input:	temp_data/processed_UML/UML_valentin_imputed_est_year.dta
@@ -331,6 +334,7 @@ rsource using "install_R_project_packages.R"
 
 		*output: 	temp_data/processed_parcels/parcels_panel_reachable_uml_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
 		*			temp_data/processed_parcels/parcels_panel_geovars_PS_CR.rds for PS = 3km, CR = (10CR, 30CR, 50CR)
+		*			temp_data/processed_parcels/parcels_panel_w_dyn_PS_CR.rds   for PS = 3km, CR = (10CR, 30CR, 50CR)
 		*			temp_data/processed_parcels/parcels_panel_final_PS_CR.rds   for PS = 3km, CR = (10CR, 30CR, 50CR)
 
 **** Merge LHS and RHS (!)

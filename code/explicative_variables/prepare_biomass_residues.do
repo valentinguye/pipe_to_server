@@ -65,3 +65,4 @@ rename YELVCU electricity_sold_value
 
 * is_mill
 codebook electricity_sold_qty electricity_sold_value generator_capacity electricity_PLN_qty electricity_PLN_value electricity_non_PLN_qty electricity_non_PLN_value electricity_self_generated if analysis_sample == 1
+

@@ -91,7 +91,8 @@ lapply(troublePackages, library, lib.loc = default_libraries, character.only = T
 
 ### NEW FOLDERS USED IN THIS SCRIPT 
 
-
+### PARCEL SIZE in METERS
+parcel_size <- 3000
 
 ### INDONESIAN CRS ### 
 #   Following http://www.geo.hunter.cuny.edu/~jochen/gtech201/lectures/lec6concepts/map%20coordinate%20systems/how%20to%20choose%20a%20projection.htm
@@ -584,10 +585,10 @@ kable(LU_stat_des, booktabs = T, align = "c",
 
 ##### 2. ACCUMULATED LUCFP #####
 
-ibs <- mills
-ibs <- ibs[!is.na(ibs$lat),]
-ibs <- st_as_sf(ibs, coords = c("lon", "lat"), crs = 4326)
-ibs[ibs$island_name == "Papua" & ibs$uml_matched_sample==1, "geometry"] %>% plot()
+# ibs <- mills
+# ibs <- ibs[!is.na(ibs$lat),]
+# ibs <- st_as_sf(ibs, coords = c("lon", "lat"), crs = 4326)
+# ibs[ibs$island_name == "Papua" & ibs$uml_matched_sample==1, "geometry"] %>% plot()
 
 # Make the template table
 
@@ -631,7 +632,15 @@ thresholdS <- c(30, 60, 90)
 
 for(island in IslandS){
   
-  ## Extract total in different catchment radiuses using panel dataframes from prepare_lucfip.R and prepare_lucpfip.R scripts. 
+  ## Extract total in different catchment radii using panel dataframes 
+  # An initial way to do it was to use data frames from prepare_lucfip.R and prepare_lucpfip.R scripts
+  # which feature all parcels that are within the given catchment radius *at least one year*. 
+  # Therefore, aggregation using these dataframes includes lucfp in places and years where no mill is already established.
+  # This is of course interesting, but it's not what we want to call "lucfp within at least one mill's catchment radius". 
+  #  ---> therefore, this first method is commented out and we now compute accumulated LUCFP under the condition 
+  # that at least one mill is reachable. This implies to use a different dataframe, that features n_reachable vars.  
+  
+  # this is a bit longer because it needs to load several times the heavier dataframe 
   
   # LUCPFIP
   for(sample in sampleS){
@@ -639,10 +648,26 @@ for(island in IslandS){
       for(pf_type in pf_typeS){
         
         # read panel data frames of parcels prepared in prepare_lucpfip.R 
-        df <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",
-                                       island,"_",PS/1000,"km_",CR,"km","_",sample,"_CR_",pf_type,".rds")))
-        accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), pf_type] <- sum(df[df$year <= 2015, 5], na.rm = TRUE)
-        rm(df)
+        # df <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",
+        #                                island,"_",PS/1000,"km_",CR,"km","_",sample,"_CR_",pf_type,".rds")))
+        # accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), pf_type] <- sum(df[df$year <= 2015, 5], na.rm = TRUE)
+        # rm(df)
+        
+        # read in all parcels (panel from 2001-2015) within a given catchment radius at least one year 
+        parcels <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                            PS/1000,"km_",
+                                            CR,"CR.rds")))
+        # restrict to island
+        parcels <- parcels[parcels$island == island,]
+        
+        # sum pixelcounts over parcels and years, under the condition that n_reachable is not null
+        if(sample == "IBS"){
+         accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), pf_type] <- sum(parcels[parcels$n_reachable_ibs > 0, paste0("lucpfip_pixelcount_",pf_type)])
+        }
+        if(sample == "UML"){
+         accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), pf_type] <- sum(parcels[parcels$n_reachable_uml > 0, paste0("lucpfip_pixelcount_",pf_type)])
+        }
+
       }
     }
   }
@@ -653,11 +678,27 @@ for(island in IslandS){
       for(th in thresholdS){
         
         # read panel data frames of parcels prepared in prepare_lucfip.R 
-        df <- readRDS(file.path(paste0("temp_data/processed_parcels/lucfip_panel_",
-                                       island,"_",PS/1000,"km_",CR,"km","_",sample,"_CR_",th,"th.rds")))
-        # these dataframes are all shaped in the same way, that the fifth column is always the pixelcount we are interested in summing here.
-        accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), paste0(th,"%")] <- sum(df[df$year <= 2015, 5], na.rm = TRUE)
-        rm(df)
+        # df <- readRDS(file.path(paste0("temp_data/processed_parcels/lucfip_panel_",
+        #                                island,"_",PS/1000,"km_",CR,"km","_",sample,"_CR_",th,"th.rds")))
+        # # these dataframes are all shaped in the same way, that the fifth column is always the pixelcount we are interested in summing here.
+        # accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), paste0(th,"%")] <- sum(df[df$year <= 2015, 5], na.rm = TRUE)
+        # rm(df)
+        
+        # read in all parcels (panel from 2001-2015) within a given catchment radius at least one year 
+        parcels <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                            PS/1000,"km_",
+                                            CR,"CR.rds")))
+        # restrict to island
+        parcels <- parcels[parcels$island == island,]
+        
+        # sum pixelcounts over parcels and years, under the condition that n_reachable is not null
+        if(sample == "IBS"){
+          accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), paste0(th,"%")] <- sum(parcels[parcels$n_reachable_ibs > 0, paste0("lucfip_pixelcount_",th,"th")])
+        }
+        if(sample == "UML"){
+          accu_lucfp[paste0(island,"_",sample,"_",CR,"km"), paste0(th,"%")] <- sum(parcels[parcels$n_reachable_uml > 0, paste0("lucfip_pixelcount_",th,"th")])
+        }
+        
       }
     }
   }
@@ -707,6 +748,12 @@ for(island in IslandS){
 accu_lucfp_torestore <- accu_lucfp
 # accu_lucfp <- accu_lucfp_torestore
 
+### ### ### ### Alternative method ### ### ### ### 
+
+
+# mais est ce qu'on a pas un problème car 
+### ### ### ### ### ### ### ### ### 
+
 # Fill the row of total over islands
 for(col in c(1:6)){
   accu_lucfp["Total three islands", col] <- sum(accu_lucfp["Sumatra", col], 
@@ -715,7 +762,7 @@ for(col in c(1:6)){
 }
 
 # convert the sum value from number of pixels of resolution 27.8 by 27.6 meters (i.e. ~767.29 square meters) to thousand hectares 
-pixel_area <- (27.8*27.6)/(1e7) # 1e10 is the convertion factor between a square meter and a THOUSAND hectare.  
+pixel_area <- (27.8*27.6)/(1e7) # 1e7 is the convertion factor between a square meter and a THOUSAND hectare.  
 
 accu_lucfp <- accu_lucfp*pixel_area
 accu_lucfp <- accu_lucfp %>% round(digits = 2)

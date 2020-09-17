@@ -47,7 +47,7 @@
 # see this project's README for a better understanding of how packages are handled in this project. 
 
 # These are the packages needed in this particular script. 
-neededPackages = c("dplyr", "readstata13", "foreign",
+neededPackages = c("dplyr", "readstata13", "foreign", "sjmisc",
                    "rgdal", "sf", 
                    "DataCombine")
 #install.packages("sf", source = TRUE)
@@ -344,8 +344,10 @@ for(catchment_radius in catchment_radiuseS){
   # all.equal(st_drop_geometry(parcels1), st_drop_geometry(parcels2))
   # rm(parcels2)
   
-  
-  
+#### export shares from percentage to fraction ####  
+parcels$wa_prex_cpo_imp1 <- parcels$wa_prex_cpo_imp1/100 
+parcels$wa_prex_cpo_imp2 <- parcels$wa_prex_cpo_imp2/100 
+
 #### TIME DYNAMICS VARIABLES #### 
   #parcels <- st_drop_geometry(parcels)
     
@@ -465,7 +467,7 @@ for(catchment_radius in catchment_radiuseS){
     
     
     
-    ### Contemporaneous and past-year averaged year-on-year growth 
+    ### Contemporaneous and past-year averaged YEAR-ON-YEAR GROWTH
     
     ## contemporaneous yoyg - SHORT RUN MEASURE - (invalid for at least the first record of each parcel_id)
     parcels <- mutate(parcels,
@@ -536,12 +538,82 @@ for(catchment_radius in catchment_radiuseS){
     }
   }  
 
-  saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/parcels_panel_final_",
+  saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/parcels_panel_w_dyn_",
                                     parcel_size/1000,"km_",
                                     catchment_radius/1000,"CR.rds")))  
 }
 
 
+
+##### TIME SERIES & IV ##### 
+ts <- read.dta13(file.path("temp_data/IBS_UML_panel_final.dta"))
+ts <- dplyr::select(ts, year, 
+                    taxeffectiverate,
+                    ref_int_cpo_price,
+                    cif_rtdm_cpo,
+                    dom_blwn_cpo,
+                    fob_blwn_cpo,
+                    spread_int_dom_paspi,
+                    rho,
+                    dom_blwn_pko,
+                    cif_rtdm_pko,
+                    spread1, spread2, spread3, spread4)
+# we only need the time series
+ts <- ts[!duplicated(ts$year),]
+
+
+catchment_radiuseS <- c(1e4, 3e4, 5e4)# 
+for(catchment_radius in catchment_radiuseS){ 
+  parcels <- readRDS(file.path(paste0("temp_data/processed_parcels/parcels_panel_w_dyn_",
+                                      parcel_size/1000,"km_",
+                                      catchment_radius/1000,"CR.rds")))
+  
+  parcels <- merge(parcels, ts, by = "year")
+  
+  # Make the SHIFT SHARE INSTRUMENTAL VARIABLES 
+  for(IMP in c(1,2)){
+    for(SP in c(1:4)){
+      parcels[,paste0("iv",SP,"_imp",IMP)] <- parcels[,paste0("wa_prex_cpo_imp",IMP,"_lag1")]*parcels[,paste0("spread",SP)] 
+    }
+  }
+
+
+
+  
+  # lag the iv variables
+  ivS <- c(paste0("iv",c(1:4),"_imp1"), paste0("iv",c(1:4),"_imp2"))
+  
+  for(IV in ivS){
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+    parcels <- DataCombine::slide(parcels,
+                                  Var = IV, 
+                                  TimeVar = "year",
+                                  GroupVar = "parcel_id",
+                                  NewVar = paste0(IV,"_lag1"),
+                                  slideBy = -1, 
+                                  keepInvalid = TRUE)  
+    parcels <- dplyr::arrange(parcels, parcel_id, year)
+  }
+  
+  # View(parcels[!is.na(parcels$wa_prex_cpo_imp1_lag1) &
+  #                parcels$year>2007 &
+  #                parcels$wa_prex_cpo_imp1_lag1!=0 ,c("parcel_id" ,"year", paste0("wa_prex_cpo_imp",c(1,2),"_lag1"),
+  #                                                      paste0("spread",c(1:4)),
+  #                                                      paste0("iv",c(1:4),"_imp1"),
+  #                                                      paste0("iv",c(1:4),"_imp2"), 
+  #                                                      paste0("iv",c(1:4),"_imp1_lag1"))])
+  
+  
+  saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/parcels_panel_final_",
+                               parcel_size/1000,"km_",
+                               catchment_radius/1000,"CR.rds")))
+
+  
+}  
+  
+  
+  
+  
 voi <- "wa_ffb_price_imp1"
 View(parcels[parcels$parcel_id==16500,c("parcel_id", "year",
                                         voi,#
