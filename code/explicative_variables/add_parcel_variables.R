@@ -213,12 +213,9 @@ while(catchment_radius < 60000){
   
   catchment_radius <- catchment_radius + 20000
 }
+  
 
-
-
-
-
-#### ADD GEGRAPHIC VARIABLES AND BASELINE FOREST EXTENT VARIABLES ####
+#### ADD GEGRAPHIC VARIABLES AND THEIR TRENDS ####
 catchment_radiuseS <- c(1e4, 3e4, 5e4)#
 for(catchment_radius in catchment_radiuseS){
   # this is prepared in this script's previous part (add n reachable uml... )
@@ -229,7 +226,7 @@ for(catchment_radius in catchment_radiuseS){
   parcels <- st_as_sf(parcels, coords = c("lon", "lat"), crs = indonesian_crs, remove = FALSE)
   
   
-  # ISLAND variable
+  ### ISLAND variable
   island_sf <- st_read(file.path("temp_data/processed_indonesia_spatial/island_sf"))
   names(island_sf)[names(island_sf)=="island"] <- "shape_des"
   
@@ -263,7 +260,7 @@ for(catchment_radius in catchment_radiuseS){
   parcels$island <- replace(parcels$island, parcels$island == 3, "Kalimantan")
   
   
-  # PROVINCE variable
+  ### PROVINCE variable
   
   # Work with a cross section for province and district attribution
   parcels_cs <- parcels[!duplicated(parcels$parcel_id),]
@@ -278,7 +275,7 @@ for(catchment_radius in catchment_radiuseS){
   
   parcels_cs$province <- province_sf_prj$NAME_1[nearest_prov_idx]
   
-  # DISTRICT variable
+  ### DISTRICT variable
   district_sf <- st_read(file.path("input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp"))
   district_names <- read.dta13(file.path("temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta"))
   district_names <- district_names[!duplicated(district_names$bps_),]
@@ -301,6 +298,11 @@ for(catchment_radius in catchment_radiuseS){
                    st_drop_geometry(parcels_cs[,c("parcel_id", "province", "district")]),
                    by = "parcel_id")
  
+  # REGIONAL TRENDS VARIABLES
+  parcels$island_year <- paste0(parcels$island,"_",parcels$year)
+  parcels$province_year <- paste0(parcels$province,"_",parcels$year)
+  parcels$district_year <- paste0(parcels$district,"_",parcels$year)
+  
   saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/parcels_panel_geovars_",
                                      parcel_size/1000,"km_",
                                      catchment_radius/1000,"CR.rds")))
@@ -557,7 +559,7 @@ ts <- dplyr::select(ts, year,
                     rho,
                     dom_blwn_pko,
                     cif_rtdm_pko,
-                    spread1, spread2, spread3, spread4)
+                    spread1, spread2, spread3, spread4, spread5, spread6)
 # we only need the time series
 ts <- ts[!duplicated(ts$year),]
 
@@ -572,7 +574,7 @@ for(catchment_radius in catchment_radiuseS){
   
   # Make the SHIFT SHARE INSTRUMENTAL VARIABLES 
   for(IMP in c(1,2)){
-    for(SP in c(1:4)){
+    for(SP in c(1:6)){
       parcels[,paste0("iv",SP,"_imp",IMP)] <- parcels[,paste0("wa_prex_cpo_imp",IMP,"_lag1")]*parcels[,paste0("spread",SP)] 
     }
   }
@@ -581,7 +583,7 @@ for(catchment_radius in catchment_radiuseS){
 
   
   # lag the iv variables
-  ivS <- c(paste0("iv",c(1:4),"_imp1"), paste0("iv",c(1:4),"_imp2"))
+  ivS <- c(paste0("iv",c(1:6),"_imp1"), paste0("iv",c(1:6),"_imp2"))
   
   for(IV in ivS){
     parcels <- dplyr::arrange(parcels, parcel_id, year)
@@ -604,6 +606,15 @@ for(catchment_radius in catchment_radiuseS){
   #                                                      paste0("iv",c(1:4),"_imp1_lag1"))])
   
   
+  
+  # ### add the rspo data
+  # rspo <- st_read("input_data/RSPO_supply_bases/RSPO-certified_oil_palm_supply_bases_in_Indonesia.shp")
+  # 
+  # rspo[,"icletdate"] %>% plot()
+  
+  
+  
+
   saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/parcels_panel_final_",
                                parcel_size/1000,"km_",
                                catchment_radius/1000,"CR.rds")))
@@ -611,7 +622,129 @@ for(catchment_radius in catchment_radiuseS){
   
 }  
   
+
+
+#### ADD N REACHABLE UML TO PARCELS IN UML CATCHMENT RADIUS #### 
+# this is a different thing, it does not add variables to our sample for analysis, but to 
+# another sample, that of parcels within CR of a **UML** mill, as outputed from prepare_lucpfip.R
+# this is necessary to later compute the aggregation factor in demand for deforestation. 
+
+# prepare geographic data once before looping
+# island
+island_sf <- st_read(file.path("temp_data/processed_indonesia_spatial/island_sf"))
+names(island_sf)[names(island_sf)=="island"] <- "shape_des"
+
+island_sf_prj <- st_transform(island_sf, crs = indonesian_crs)
+#province
+province_sf <- st_read(file.path("input_data/indonesia_spatial/province_shapefiles/IDN_adm1.shp"))
+province_sf <- dplyr::select(province_sf, NAME_1)
+province_sf_prj <- st_transform(province_sf, crs = indonesian_crs)
+# district
+district_sf <- st_read(file.path("input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp"))
+district_names <- read.dta13(file.path("temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta"))
+district_names <- district_names[!duplicated(district_names$bps_),]
+district_sf$d__2000 <- district_sf$d__2000 %>% as.character()
+district_names$bps_ <- district_names$bps_ %>% as.character()
+district_sf <- left_join(x = district_sf, y = district_names[,c("name_", "bps_")], 
+                         by = c("d__2000" = "bps_"),
+                         all = FALSE, all.x = FALSE, all.y = FALSE)
+
+
+district_sf_prj <- st_transform(district_sf, crs = indonesian_crs)
+
+catchment_radius <- 10000
+while(catchment_radius < 60000){
+  # read the panel of parcels within CR of a **UML** mill, as outputed from prepare_lucpfip.R
+  parcels <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_",
+                                      parcel_size/1000,"km_",
+                                      catchment_radius/1000,"km_UML_CR.rds")))
   
+  # make a spatial cross section of it (parcels' coordinates are constant over time)
+  parcels_centro <- parcels[parcels$year == 2001, c("parcel_id", "lat", "lon")]
+  # (lon lat are already expressed in indonesian crs)
+  parcels_centro <- st_as_sf(parcels_centro, coords = c("lon", "lat"), remove = T, crs = indonesian_crs)
+  
+  parcels$newv_uml <- rep(0, nrow(parcels))
+  
+  for(t in 1:length(years)){
+    
+    # UML
+    # This is not a panel, so the information on presence or not a given year is whether 
+    # the establishment year is anterior. We impute NA establishment year to be older than 1998. 
+    present_uml <- uml[uml$est_year_imp <= years[t] | is.na(uml$est_year_imp),]
+    
+    annual_reachable_uml <- st_is_within_distance(parcels_centro, present_uml, dist = catchment_radius)
+    parcels[parcels$year == years[t], "newv_uml"] <- lengths(annual_reachable_uml)
+  } 
+  colnames(parcels)[colnames(parcels) == "newv_uml"] <- paste0("n_reachable_uml")
+  
+  ### ADD GEOGRAPHIC VARIABLES
+  parcels <- st_as_sf(parcels, coords = c("lon", "lat"), crs = indonesian_crs, remove = FALSE)
+  
+  # ISLAND variable
+  parcels$island <- rep("", nrow(parcels))
+  
+  # make the operation faster by using island bbox (other wise the island polygons make 
+  # the computation very long)
+  # (and this also includes parcel centroids in the sea)
+  island_sf_prj_bbox <- sapply(island_sf_prj$geometry, function(x){st_as_sfc(st_bbox(x))}) %>% st_sfc(crs = indonesian_crs)
+  
+  sgbp <- st_within(parcels$geometry, island_sf_prj_bbox)
+  # the bboxes of Sumatra and Kalimantan intersect a bit, so we check that no parcel falls 
+  # in the intersection, this is the case for catchment_radius = 50km, for 2538 parcels, 
+  # these parcel centroids belong to Kalimantan (after visual check). 
+  # intersect <- st_intersection(island_sf_prj_bbox[1], island_sf_prj_bbox[3])
+  # plot(island_sf_prj_bbox[[1]])
+  # plot(island_sf_prj, add = TRUE)
+  # plot(parcels$geometry[parcels$island==4], col = "red", add = TRUE)
+  
+  sgbp[lengths(sgbp)==2] <- 3
+  
+  # island_sf_prj features are in this order : 1 Sumatra; 2 Papua; 3 Kalimantan
+  unique(unlist(sgbp))
+  parcels$island <- unlist(sgbp)
+  
+  parcels$island <- replace(parcels$island, parcels$island == 1, "Sumatra")
+  unique(parcels$island)
+  parcels$island <- replace(parcels$island, parcels$island == 2, "Papua")
+  parcels$island <- replace(parcels$island, parcels$island == 3, "Kalimantan")
+  
+  
+  # PROVINCE variable
+  
+  # Work with a cross section for province and district attribution
+  parcels_cs <- parcels[!duplicated(parcels$parcel_id),]
+  
+  
+  # the nearest feature function enables to also grab those parcels which centroids are in the sea.
+  nearest_prov_idx <- st_nearest_feature(parcels_cs, province_sf_prj)
+  
+  parcels_cs$province <- province_sf_prj$NAME_1[nearest_prov_idx]
+  
+  # DISTRICT variable
+  # the nearest feature function enables to also grab those parcels which centroids are in the sea.
+  nearest_dstr_idx <- st_nearest_feature(parcels_cs, district_sf_prj)
+  
+  # 4 parcels are closest to district with no name (NA) 
+  parcels_cs$district <- district_sf_prj$name_[nearest_dstr_idx]
+  
+  parcels <- merge(st_drop_geometry(parcels),
+                   st_drop_geometry(parcels_cs[,c("parcel_id", "province", "district")]),
+                   by = "parcel_id")
+  
+  # REGIONAL TRENDS VARIABLES
+  parcels$island_year <- paste0(parcels$island,"_",parcels$year)
+  parcels$province_year <- paste0(parcels$province,"_",parcels$year)
+  parcels$district_year <- paste0(parcels$district,"_",parcels$year)
+  
+  saveRDS(parcels, file.path(paste0("temp_data/processed_parcels/lucpfip_panel_reachable_geovars_",
+                                    parcel_size/1000,"km_",
+                                    catchment_radius/1000,"km_UML_CR.rds")))
+  
+  
+  catchment_radius <- catchment_radius + 20000
+}
+
   
   
 voi <- "wa_ffb_price_imp1"

@@ -116,12 +116,13 @@ if(FALSE){
   library(boot)
   library(Countr)
   library(ggplot2)
+  library(doBy)
   
 }
 
 # If new packages are needed along the project data processing workflow, one should: 
 # 1. install the packages in a user local default library (you may have to chose explicitly which, hence the brackets after default_libraries)
-install.packages("Countr", lib = default_libraries[1])
+install.packages("tmap", lib = default_libraries[1])
 # 2. add 'library(package)' in the list above, and ',"package"' in the neededPackages vector above, and save the present file.
 # 3. perform an implicit (the default) snapshot, that writes to the renv.lock file the packages at
 # the intersection between packages found in the project by renv::dependencies() 

@@ -173,6 +173,7 @@ for(CR in catchment_radiuseS){
 }
 
 
+# Write to Stata if analyses/tests are to be done there...
 parcel_size <- 3000
 catchment_radius <- 3e4
 catchment_radiuseS <- c(1e4, 3e4, 5e4) # (in meters)

@@ -820,6 +820,28 @@ ran.gen_cluster <- function(original_data, cluster_var, sizes){
   # # test new clusters are not duplicated
   # anyDuplicated(cl_boot_dat[,c(cluster_var,"year")])
   # 
+  
+  # design in apply  
+  # needs two lower level functions imbricated
+  # one that samples 
+  # one, lower, that extracts individual clusters 
+  # extract_cl_d <- function(g_name){
+  #          # for(g in 1:arg_list[["number_clusters"]][[s]]){
+  #               # name of the g_th cluster that got resampled
+  #               # g_name <- sample_cl_s[g]
+  #               
+  #               # select the s observations from cluster g 
+  #               # if this cluster name was picked more than once, then its obs. will be added again for another value of g. 
+  #               cc <- original_data[as.character(original_data[,arg_list[["cluster_variable"]]]) == g_name,]
+  #               # we need to give a new cluster identifier during the resampling, otherwise a cluster sampled more than once 
+  #               # will be "incorrectly treated as one large cluster rather than two distinct cluster" (by the fixed effects) (Cameron 2015)
+  #               cc[,arg_list[["cluster_variable"]]] <- paste0(s,"_",g)
+  #               
+  #               return(cc)
+  # }
+  # bd_s <- lapply(X = sample_cl_s, FUN = extract_cl_d) %>% bind_rows()
+  
+   
   return(cl_boot_dat)
 }
 

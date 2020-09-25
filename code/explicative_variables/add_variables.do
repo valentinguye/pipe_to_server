@@ -37,6 +37,11 @@ gen double spread3 = spread_int_dom_paspi - rho
 label variable spread3 "spread"
 gen double spread4 = ref_int_cpo_price - dom_blwn_cpo - taxeffectiverate*ref_int_cpo_price
 label variable spread4 "spread_cpo_refpr_blwn"
+gen double spread5 = spread_int_dom_paspi
+label variable spread5 "spread_notax"
+gen double spread6 = cif_rtdm_cpo - fob_blwn_cpo - taxeffectiverate*cif_rtdm_cpo
+label variable spread6 "spread_cpo_rtdm_fobblwn"
+
 tabstat spread1 spread2 spread3 spread4, statistics( mean ) by(year)
 * all missing until 2007. 
 

@@ -43,10 +43,27 @@ lapply(neededPackages, library, character.only = TRUE)
 #   you should try to install them, preferably in their versions stated in the renv.lock file. 
 #   see in particular https://rstudio.github.io/renv/articles/renv.html 
 
+
+# # /!\ THIS BREAKS THE PROJECT REPRODUCIBILITY GUARANTY /!\
+troublePackages <- c("leaflet", "leaflet.providers", "png")
+# Attempt to load packages from user's default libraries.
+lapply(troublePackages, library, lib.loc = default_libraries, character.only = TRUE)
+
+### WORKING DIRECTORY SHOULD BE CORRECT IF THIS SCRIPT IS RUN WITHIN R_project_for_individual_runs
+### OR CALLED FROM LUCFP PROJECT master.do FILE.
+### IN ANY CASE IT SHOULD BE (~/LUCFP/data_processing
+
 ### NEW FOLDERS USED IN THIS SCRIPT 
 dir.create("temp_data/reg_results")
 
 
+### INDONESIAN CRS 
+#   Following http://www.geo.hunter.cuny.edu/~jochen/gtech201/lectures/lec6concepts/map%20coordinate%20systems/how%20to%20choose%20a%20projection.htm
+#   the Cylindrical Equal Area projection seems appropriate for Indonesia extending east-west along equator. 
+#   According to https://spatialreference.org/ref/sr-org/8287/ the Proj4 is 
+#   +proj=cea +lon_0=0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs
+#   which we center at Indonesian longitude with lat_ts = 0 and lon_0 = 115.0 
+indonesian_crs <- "+proj=cea +lon_0=115.0 +lat_ts=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
 
 ### PARCEL SIZE
 parcel_size <- 3000
@@ -158,6 +175,12 @@ setFixest_dict(c(parcel_id = "grid cell",
                  wa_prex_cpo_imp2 = "Percentage CPO exported",
                  wa_prex_cpo_imp2_lag1 = "Percentage CPO exported (lagged)"
 ))
+
+
+
+# OK SO NOW FIXED EFFECT VARIABLES ARE DEFINED IN add_parcel_variables.R AS geographic_year 
+# the only change implied is that now district^year can also be specified as district_year.
+
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
@@ -857,6 +880,1024 @@ for(DYN in c(0,1)){
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
 
+##### SPECIFICATION CHARTS / ROBUSTNESS CHECKS #####
+# These charts compare coefficients from a single dependent variable across different models/specifications
+# Therefore we produce one such chart for CPO TOTAL, FFB TOTAL (and possibly for LRs and SRs too)
+# The function is written in base R and exactly copied from https://github.com/ArielOrtizBobea/spec_chart/blob/master/spec_chart_function.R
+
+schart <- function(data, labels=NA, highlight=NA, n=1, index.est=1, index.se=2, index.ci=NA,
+                   order="asis", ci=.95, ylim=NA, axes=T, heights=c(1,1), leftmargin=11, offset=c(0,0), ylab="Coefficient", lwd.border=1,
+                   lwd.est=4, pch.est=21, lwd.symbol=2, ref=0, lwd.ref=1, lty.ref=2, col.ref="black", band.ref=NA, col.band.ref=NA,length=0,
+                   col.est=c("grey60", "red3"), col.est2=c("grey80","lightcoral"), bg.est=c("white", "white"),
+                   col.dot=c("grey60","grey95","grey95","red3"),
+                   bg.dot=c("grey60","grey95","grey95","white"),
+                   pch.dot=c(22,22,22,22), fonts=c(2,1), adj=c(1,1),cex=c(1,1)) {
+  
+  # Authors: Ariel Ortiz-Bobea (ao332@cornell.edu).
+  # Version: March 10, 2020
+  # If you like this function and use it, please send me a note. It might motivate
+  # me to imporove it or write new ones to share.
+  
+  # Description of arguments
+  
+  # Data:
+  # data: data.frame with data, ideally with columns 1-2 with coef and SE, then logical variables.
+  # labels: list of labels by group. Can also be a character vector if no groups. Default is rownames of data.
+  # index.est: numeric indicating position of the coefficient column.
+  # index.se: numeric indicating position of the SE column.
+  # index.ci: numeric vector indicating position of low-high bars for SE. Can take up to 2 CI, so vector can be up to length 4
+  
+  # Arrangement and basic setup:
+  # highlight: numeric indicating position(s) of models (row) to highlight in original dataframe.
+  # n: size of model grouping. n=1 removes groupings. A vector yields arbitrary groupings.
+  # order: whether models should be sorted or not. Options: "asis", "increasing", "decreasing"
+  # ci: numeric indicating level(s) of confidence. 2 values can be indicated.
+  # ylim: if one wants to set an arbitrary range for Y-axis
+  
+  # Figure layout:
+  # heights: Ratio of top/bottom panel. Default is c(1,1) for 1 50/50 split
+  # leftmargin: amount of space on the left margin
+  # offset: vector of numeric with offset for the group and specific labels
+  # ylab: Label on the y-axis of top panel. Default is "Coefficient"
+  # lwd.border: width of border and other lines
+  
+  # Line and symbol styles and colors:
+  # lwd.est: numeric indicating the width of lines in the top panel
+  # ref: numeric vector indicating horizontal reference lines(s) Default is 0.
+  # lty.ref: Style of reference lines. Default is dash line (lty=2).
+  # lwd.ref. Width of reference lines. Default is 1.
+  # col.ref: vector of colors of reference lines. Default is black.
+  # band.ref: vector of 2 numerics indicating upper abdn lower height for a band
+  # col.band.ref: color of this band
+  # col.est: vector of 2 colors indicating for "other" and "highlighted" models
+  # col.est2: same for outer confidence interval if more than 1 confidence interval
+  # col.dot: vector of 4 colors indicating colors for borders of symbol in bottom panel for "yes", "no", "NA", and "yes for highlighted model"
+  # bg.dot : vector of 4 colors indicating colors for background of symbol in bottom panel for "yes", "no", "NA", and "yes for highlighted model"
+  # pch.dot: style of symbols in bottom panel for "yes", "no", "NA", and "yes for highlighted model"
+  # length: length of the upper notch on th vertical lines. default is 0.
+  
+  # Letter styles
+  # fonts: numeric vector indicating font type for group (first) and other labels (second) (e.g. 1:normal, 2:bold, 3:italic)
+  # adj: numeric vector indicating alignment adjustment for text label: 0 is left, .5 is center, 1 is right.
+  # cex: numeric vector for size of fonts for top panel (first) and bottom panel (Second)
+  
+  # 1. Set up
+  if (T) {
+    # Arrange data
+    d <- data
+    rownames(d) <- 1:nrow(d)
+    
+    # Create ordering vector
+    if (order=="asis")       o <- 1:length(d[,index.est])
+    if (order=="increasing") o <- order(d[,index.est])
+    if (order=="decreasing") o <- order(-d[,index.est])
+    if (!is.numeric(d[,index.est])) {warning("index.est does not point to a numeric vector.") ; break}
+    d <- d[o,]
+    est <- d[,index.est] # Estimate
+    if (length(index.ci)>1) {
+      l1 <- d[,index.ci[1]]
+      h1 <- d[,index.ci[2]]
+      if (length(index.ci)>2) {
+        l2 <- d[,index.ci[3]]
+        h2 <- d[,index.ci[4]]
+      }
+    } else {
+      if (!is.numeric(d[,index.se]))  {warning("index.se does not point to a numeric vector.") ; break}
+      se  <- d[,index.se] # Std error
+      ci <- sort(ci)
+      a <- qnorm(1-(1-ci)/2)
+      l1 <- est - a[1]*se
+      h1 <- est + a[1]*se
+      if (length(ci)>1) {
+        l2 <- est - a[2]*se
+        h2 <- est + a[2]*se
+      }
+    }
+    
+    # Table
+    if (length(index.ci)>1) remove.index <- c(index.est,index.ci) else remove.index <- c(index.est,index.se)
+    remove.index <- remove.index[!is.na(remove.index)]
+    tab <- t(d[,-remove.index]) # get only the relevant info for bottom panel
+    if (!is.list(labels) & !is.character(labels)) labels <- rownames(tab)
+    
+    # Double check we have enough labels
+    if ( nrow(tab) != length(unlist(labels))) {
+      print("Warning: number of labels don't match number of models.")
+      labels <- rownames(tab)
+    }
+    
+    # Plotting objects
+    xs <- 1:nrow(d) # the Xs for bars and dots
+    if (n[1]>1 & length(n)==1) xs <- xs + ceiling(seq_along(xs)/n) - 1 # group models by n
+    if (length(n)>1) {
+      if (sum(n) != nrow(d) ) {
+        warning("Group sizes don't add up.")
+      } else {
+        idx <- unlist(lapply(1:length(n), function(i) rep(i,n[i])))
+        xs <- xs + idx - 1
+      }
+    }
+    h <- nrow(tab) + ifelse(is.list(labels),length(labels),0) # number of rows in table
+    # Location of data and labels
+    if (is.list(labels)) {
+      index <- unlist(lapply(1:length(labels), function(i) rep(i, length(labels[[i]])) ))
+      locs <- split(1:length(index),index)
+      locs <- lapply(unique(index), function(i) {
+        x <- locs[[i]]+i-1
+        x <- c(x,max(x)+1)
+      })
+      yloc  <- unlist(lapply(locs, function(i) i[-1])) # rows where data points are located
+      yloc2 <- sapply(locs, function(i) i[1]) # rows where group lables are located
+    } else {
+      yloc <- 1:length(labels)
+    }
+    
+    # Range
+    if (is.na(ylim[1]) | length(ylim)!=2) {
+      if (length(index.ci)>2 | length(ci)>1) {
+        ylim <- range(c(l2,h2,ref)) # range that includes reference lines
+      } else {
+        ylim <- range(c(l1,h1,ref))
+      }
+      ylim <- ylim + diff(ylim)/10*c(-1,1) # and a bit more
+    }
+    xlim <- range(xs) #+ c(1,-1)
+  }
+  
+  # 2. Plot
+  if (T) {
+    #par(mfrow=c(2,1), mar=c(0,leftmargin,0,0), oma=oma, xpd=F, family=family)
+    layout(t(t(2:1)), height=heights, widths=1)
+    par(mar=c(0,leftmargin,0,0), xpd=F)
+    
+    # Bottom panel (plotted first)
+    plot(est, xlab="", ylab="", axes=F, type="n", ylim=c(h,1), xlim=xlim)
+    lapply(1:nrow(tab), function(i) {
+      # Get colors and point type
+      type <- ifelse(is.na(tab[i,]),3,ifelse(tab[i,]==TRUE,1, ifelse(tab[i,]==FALSE,2,NA)))
+      type <- ifelse(names(type) %in% paste(highlight) & type==1,4,type) # replace colors for baseline model
+      col <- col.dot[type]
+      bg  <- bg.dot[type]
+      pch <- as.numeric(pch.dot[type])
+      sel <- is.na(pch)
+      # Plot points
+      points(xs, rep(yloc[i],length(xs)), col=col, bg=bg, pch=pch, lwd=lwd.symbol)
+      points(xs[sel], rep(yloc[i],length(xs))[sel], col=col[sel], bg=bg[sel], pch=pch.dot[3]) # symbol for missing value
+      
+    })
+    par(xpd=T)
+    if (is.list(labels)) text(-offset[1], yloc2, labels=names(labels), adj=adj[1], font=fonts[1], cex=cex[2])
+    # Does not accomodate subscripts
+    text(-rev(offset)[1], yloc , labels=unlist(labels), adj=rev(adj)[1], font=fonts[2], cex=cex[2])
+    # Accomodates subscripts at the end of each string
+    if (F) {
+      labels1 <- unlist(labels)
+      lapply(1:length(labels1), function(i) {
+        a  <- labels1[i]
+        a1 <- strsplit(a,"\\[|\\]")[[1]][1]
+        a2 <- rev(strsplit(a,"\\[|\\]")[[1]])[1]
+        if (identical(a1,a2))  a2 <- NULL
+        text(-rev(offset)[1], yloc[i], labels=bquote(.(a1)[.(a2)]), adj=adj[2], font=fonts[2], cex=cex[2])
+      })
+    }
+    par(xpd=F)
+    
+    # Top panel (plotted second)
+    colvec  <- ifelse(colnames(tab) %in% paste(highlight), col.est[2], col.est[1])
+    bg.colvec  <- ifelse(colnames(tab) %in% paste(highlight), bg.est[2], bg.est[1])
+    colvec2 <- ifelse(colnames(tab) %in% paste(highlight),col.est2[2], col.est2[1])
+    plot(est, xlab="", ylab="", axes=F, type="n", ylim=ylim, xlim=xlim)
+    # Band if present
+    if (!is.na(band.ref[1])) {
+      rect(min(xlim)-diff(xlim)/10, band.ref[1], max(xlim)+diff(xlim)/10, band.ref[2], col=col.band.ref, border=NA)
+    }
+    # Reference lines
+    abline(h=ref, lty=lty.ref, lwd=lwd.ref, col=col.ref)
+    # Vertical bars
+    if (length(ci)>1 | length(index.ci)>2) arrows(x0=xs, y0=l2, x1=xs, y1=h2, length=length, code=3, lwd=rev(lwd.est)[1], col=colvec2, angle=90)
+    arrows(x0=xs, y0=l1, x1=xs, y1=h1, length=length, code=3, lwd=lwd.est[1]     , col=colvec, angle=90)
+    points(xs, est, pch=pch.est, lwd=lwd.symbol, col=colvec, bg=bg.colvec)
+    # Axes
+    if (axes) {
+      axis(2, las=2, cex.axis=cex[1], lwd=lwd.border)
+      axis(4, labels=NA, lwd=lwd.border)
+    }
+    mtext(ylab, side=2, line=3.5, cex=cex[1])
+    box(lwd=lwd.border)
+    
+  }
+  
+} 
+
+
+# make labels for the chart
+schart_labels <- list("Outcome variable:" = c("LUCPFIP", 
+                                              "LUCFIP 30%"),
+                      "Sample:" = c("30km catchment radius",
+                                    "50km catchment radius", 
+                                    "Data cleaning stronger imputations"),
+                      "Distribution assumption:" = c("Poisson",
+                                                     "Quasi-Poisson", 
+                                                     "Negative Binomial"),
+                      "Price signal averaged over:" = c("3 years", 
+                                                        "4 years", 
+                                                        "5 years"), 
+                      "One-year lagged regressors" = "", 
+                      "Fixed effects:" = c("Grid cell", 
+                                           "Grid cell and year", 
+                                           "Grid cell and province-year",
+                                           "Grid cell and district-year"),
+                      "Controls:" = c(paste0(toupper(c("ffb", "cpo")[!grepl(VAR, c("ffb", "cpo"))]), " price signal"), 
+                                      "Ownership",
+                                      "# reachable UML mills", 
+                                      "% CPO exported", 
+                                      "PYA outcome", 
+                                      "PYA outcome neighbors"),
+                      "Weights" = "", 
+                      "Standard errors:" = c("Grid cell cluster", 
+                                             "Two-way cluster")
+) 
+
+
+
+# We now produce the "data" argument for the function schart, i.e. we run regressions. 
+# catchment_radius <- 3e4
+# island <- "Kalimantan"
+# outcome_variable <- "lucpfip_pixelcount_total"
+# dynamics <- FALSE
+# commo <- c("ffb", "cpo")
+# yoyg <- FALSE
+# short_run <- "unt level"
+# imp <- 1
+# distribution <- "quasipoisson"
+# fixed_effects <- "parcel_id"
+# x_pya <- 3
+# lag_or_not <- "_lag1"
+# controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+#               "n_reachable_uml")
+# pya_ov <- FALSE
+# weights <- TRUE
+# cluster <- "cluster"
+# variable <- "ffb"
+
+gen_reg_results_in_df <- function(variable, 
+                                  catchment_radius, # c(1e4, 3e4, 5e4)
+                                  island, # c("Sumatra", "Kalimantan", "Papua", c("Sumatra", "Kalimantan", "Papua"))
+                                  outcome_variable, # c("lucfip_pixelcount_30th", "lucfip_pixelcount_60th", "lucfip_pixelcount_90th", "lucfip_pixelcount_intact", "lucfip_pixelcount_degraded", "lucfip_pixelcount_total",)
+                                  dynamics, # TRUE or FALSE
+                                  commo, # c("ffb", "cpo", c("ffb", "cpo"))
+                                  yoyg, # TRUE or FALSE 
+                                  short_run, # sub or full vector from c("unt level", "yoyg", "dev") 
+                                  imp, # c(1,2)
+                                  distribution, # either "poisson", "quasipoisson", or "negbin"
+                                  fixed_effects,
+                                  x_pya, # c(2, 3, 4)
+                                  lag_or_not, # c("_lag1", "")
+                                  controls, # character vectors of base names of controls (don't specify in their names)
+                                  pya_ov, # logical, whether the pya (defined by x_pya) of the outcome_variable should be added in controls
+                                  weights,
+                                  cluster # one of etable's "se" argument (esp. "cluster" or "twoway". Passed to se argument of etable. 
+){
+  
+  # DATA
+  d <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                parcel_size/1000,"km_",
+                                catchment_radius/1000,"CR.rds")))
+  
+  # subsampling
+  d <- d[d$island %in% island,]
+  
+  if(outcome_variable == "lucpfip_pixelcount_total" | outcome_variable == "lucpfip_ha_total"){
+    d <- d[d$any_pfc2000_total,]
+  }
+  if(outcome_variable == "lucfip_pixelcount_30th" | outcome_variable == "lucfip_ha_30th" |
+     outcome_variable == "lucfip_pixelcount_60th" | outcome_variable == "lucfip_ha_60th" |
+     outcome_variable == "lucfip_pixelcount_90th" | outcome_variable == "lucfip_ha_90th"){
+    d <- d[d$any_fc2000_30th,]
+  }
+  
+  ### Specifications
+  if(dynamics == FALSE){ 
+    # Only the overall effect is investigated then, no short vs. long run
+    # In this case, the variables have name element _Xya_ with X the number of years over which the mean has been 
+    # computed, always including the contemporaneous record. See add_parcel_variables.R
+    #short_run <- ""
+    
+    # if we omit one commodity 
+    if(length(commo) == 1){
+      if(yoyg == TRUE){
+        regressors <- paste0("wa_",commo,"_price_imp",imp,"_yoyg_",x_pya+1,"ya",lag_or_not)
+      }else{
+        regressors <- paste0("wa_",commo,"_price_imp",imp,"_",x_pya+1,"ya",lag_or_not)
+      }
+    }
+    # if we don't omit a commodity. 
+    if(length(commo) == 2){
+      if(yoyg == TRUE){
+        regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_yoyg_",x_pya+1,"ya",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_yoyg_",x_pya+1,"ya",lag_or_not))
+        
+      }else{
+        regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya+1,"ya",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya+1,"ya",lag_or_not)) 
+      }
+    }
+  }
+  
+  # if, on the other hand, we want to disentangle the short run effects from the long run's. 
+  if(dynamics == TRUE){ 
+    
+    if(length(commo) == 1){
+      if(yoyg == TRUE){
+        regressors <- c(paste0("wa_",commo,"_price_imp",imp,"_yoyg",lag_or_not), # SR measure
+                        paste0("wa_",commo,"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not)) # LR measure          
+      }
+      if(yoyg == FALSE){
+        if(short_run == "unt level"){
+          regressors <- c(paste0("wa_",commo,"_price_imp",imp,lag_or_not), # SR measure
+                          paste0("wa_",commo,"_price_imp",imp,"_",x_pya,"pya",lag_or_not)) # LR measure
+        }
+        if(short_run == "dev"){
+          regressors <- c(paste0("wa_",commo,"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not), # SR measure
+                          paste0("wa_",commo,"_price_imp",imp,"_",x_pya,"pya",lag_or_not)) # LR measure
+        }  
+      }
+    }
+    
+    if(length(commo) == 2){
+      if(yoyg == TRUE){
+        regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_yoyg",lag_or_not),
+                        paste0("wa_",commo[1],"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_yoyg",lag_or_not),
+                        paste0("wa_",commo[2],"_price_imp",imp,"_yoyg_",x_pya,"pya",lag_or_not))    
+      }
+      if(yoyg == FALSE){
+        if(short_run == "unt level"){
+          regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,lag_or_not),# FFB SR measure
+                          paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya,"pya",lag_or_not), # FFB LR measure 
+                          paste0("wa_",commo[2],"_price_imp",imp,lag_or_not),# CPO SR measure
+                          paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya,"pya",lag_or_not)) # CPO LR measure 
+        }
+        if(short_run == "dev"){
+          regressors <- c(paste0("wa_",commo[1],"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not),
+                          paste0("wa_",commo[1],"_price_imp",imp,"_",x_pya,"pya",lag_or_not),
+                          paste0("wa_",commo[2],"_price_imp",imp,"_dev_",x_pya,"pya",lag_or_not),
+                          paste0("wa_",commo[2],"_price_imp",imp,"_",x_pya,"pya",lag_or_not))
+        }
+      }
+    }
+  }
+  
+  # add pya outcome variable 
+  if(pya_ov){controls <- c(controls, paste0(outcome_variable,"_",x_pya,"pya"))}
+  
+  # list model formulae with different fixed effects
+  fml <- as.formula(paste0(outcome_variable,
+                           " ~ ",
+                           paste0(regressors, collapse = "+"),
+                           " + ",
+                           paste0(paste0(controls,lag_or_not), collapse = "+"),
+                           " | ",
+                           fixed_effects))
+  
+  if(distribution != "negbin"){
+    # run feglm regressions with the specified family distribution
+    if(weights == TRUE){
+      var_weights <- d$sample_coverage_lag1/100 
+      one_reg_results <- fixest::feglm(fml, 
+                                       data = d, 
+                                       family = distribution, 
+                                       notes = TRUE, 
+                                       weights = var_weights)
+    }else{
+      one_reg_results <- fixest::feglm(fml, 
+                                       data = d, 
+                                       family = distribution, 
+                                       notes = TRUE)
+    }
+  }else{
+    # run negative binomial regression with fixest::fenegbin
+    # (and we cannot add weights)
+    one_reg_results <- fixest::fenegbin(fml, 
+                                        data = d, 
+                                        notes = TRUE)
+  }
+  
+  rm(d)
+  
+  # make the vector of stats needed to display in spec chart.
+  reg_summary <- summary(one_reg_results, se = cluster)
+  
+  # if we want to compute the confidence int. within the function
+  # confint <- confint(object = one_reg_results, 
+  #                    parm = match(variable, commo), 
+  #                    level = 0.95, 
+  #                    se = cluster)
+  # reg_stats <- cbind(reg_summary$coeftable[match(variable, commo),1:2], confint)
+  
+  reg_coeff_se <- reg_summary$coeftable[match(variable, commo), 1:2]
+  
+  ### make indicator variables that will be used to label specifications. 
+  ind_var <- data.frame(# outcome variable
+    "lucpfip_pixelcount_total" = FALSE, 
+    "lucfip_pixelcount_30th" = FALSE,
+    # sample
+    "CR_30km" = FALSE,
+    "CR_50km" = FALSE,
+    "imp1" = FALSE, 
+    # distribution assumptions
+    "poisson" = FALSE,
+    "quasipoisson" = FALSE,
+    "negbin" = FALSE,
+    # dependent variable
+    "pya_3" = FALSE,
+    "pya_4" = FALSE,
+    "pya_5" = FALSE,
+    "lag_or_not" = FALSE,
+    # fixed effects
+    "unit_fe" = FALSE,
+    "tw_fe" = FALSE,
+    "unit_provyear_fe" = FALSE,
+    "unit_distryear_fe" = FALSE,
+    # controls
+    "two_commo" = FALSE, 
+    "control_own" = FALSE,
+    "n_reachable_uml_control" = FALSE, 
+    "prex_cpo_control" = FALSE, 
+    "pya_outcome_control" = FALSE,
+    "pya_outcome_spatial" = FALSE,
+    # weights
+    "weights" = FALSE,
+    # standard errors
+    "oneway_cluster" = FALSE, 
+    "twoway_cluster" = FALSE
+  )
+  
+  # change the OV indicator variable to TRUE 
+  ind_var[,outcome_variable] <- TRUE
+  
+  # sample  
+  # change the CR indicator variable to TRUE for the corresponding CR
+  ind_var[,grepl(paste0("CR_", catchment_radius/1000,"km"), colnames(ind_var))] <- TRUE
+  
+  # set the indicator variable for the data imputation 
+  if(imp == 1){ind_var[,"imp1"] <- TRUE}
+  
+  # set the indicator variables for the distribution assumptions
+  ind_var[,distribution] <- TRUE
+  
+  # dependent variable
+  # set # year average indicator variables (+1 because we look at the total effect)
+  ind_var[,grepl(paste0("pya_", x_pya+1), colnames(ind_var))] <- TRUE
+  # set indicator variable for lagging or not
+  if(lag_or_not == "_lag1"){ind_var[,"lag_or_not"] <- TRUE}
+  
+  # set indicator variables for fixed effects
+  if(fixed_effects == "parcel_id"){ind_var[,"unit_fe"] <- TRUE}
+  if(fixed_effects == "parcel_id + year"){ind_var[,"tw_fe"] <- TRUE}
+  if(fixed_effects == "parcel_id + province_year"){ind_var[,"unit_provyear_fe"] <- TRUE}
+  if(fixed_effects == "parcel_id + district_year"){ind_var[,"unit_distryear_fe"] <- TRUE}
+  
+  # set indicator variables for controls included
+  # second commo 
+  if(length(commo) == 2){ind_var[,"two_commo"] <- TRUE}
+  # ownership
+  if(any(grepl("pct_own", controls))){ind_var[,"control_own"] <- TRUE}
+  # n_reachable_uml
+  if(any(grepl("n_reachable_uml", controls))){ind_var[,"n_reachable_uml_control"] <- TRUE}
+  # prex_cpo
+  if(any(grepl("prex_cpo", controls))){ind_var[,"prex_cpo_control"] <- TRUE}
+  # pya outcome
+  if(pya_ov){ind_var[,"pya_outcome_control"] <- TRUE}
+  # pya outcome spatial
+  
+  # weights indicator variable
+  if(weights){ind_var[,"weights"] <- TRUE}
+  if(distribution == "negbin"){ind_var[,"weights"] <- FALSE} # turn it back to FALSE if negbin distribution
+  
+  # clustering
+  if(cluster == "cluster"){ind_var[,"oneway_cluster"] <- TRUE}
+  if(cluster == "twoway"){ind_var[,"twoway_cluster"] <- TRUE}
+  
+  
+  spec_df <- cbind(reg_coeff_se, ind_var)
+  return(spec_df)
+}
+
+### GIVE HERE THE ISLAND AND COMMODITY FOR WHICH YOU WANT THE SPEC CHART TO BE EDITED
+ISL <- c("Sumatra", "Kalimantan", "Papua")
+ISL <- "Kalimantan"
+VAR <- "cpo"
+
+i <- 1
+reg_stats_indvar_list <- list()
+
+### RUN THESE FIRST LOOPS OF REGRESSIONS
+for(OV in c("lucpfip_pixelcount_total", "lucfip_pixelcount_30th")){
+  for(CR in c(3e4, 5e4)){
+    for(IMP in c(1, 2)){
+      #for(DISTR in c("quasipoisson", "negbin")){#
+      for(XPYA in c(2, 3, 4)){
+        for(LAG in c("_lag1", "")){
+          for(FE in c("parcel_id", "parcel_id + district_year")){
+            #for(WGH in c(TRUE, FALSE)){
+            #for(CLST in c("cluster", "twoway")){
+            reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                                island = ISL,
+                                                                outcome_variable = OV,
+                                                                catchment_radius = CR,
+                                                                dynamics = FALSE,
+                                                                commo = c("ffb", "cpo"),
+                                                                yoyg = FALSE,
+                                                                short_run = "unt level", # does not matter if dynamics == FALSE
+                                                                imp = IMP,
+                                                                distribution = "quasipoisson",
+                                                                fixed_effects = FE,
+                                                                x_pya = XPYA,
+                                                                lag_or_not = LAG, # bien vérifier ça !
+                                                                controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                             "n_reachable_uml"),
+                                                                pya_ov = FALSE,
+                                                                weights = TRUE,
+                                                                cluster = "cluster"
+            )
+            i <- i+1
+          }
+        }
+      }
+    }
+  }
+}
+#}
+#}
+#}
+
+### THEN ADD RESULTS OF DEPARTURES FROM THE PREFERED SPECIFICATION
+
+## For a different catchment radii
+# (we do not do 10km because it yields too different results that make the chart hard to read)
+# 
+# for(FE in c("parcel_id", "parcel_id + district_year")){
+# reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+#                                                     island = ISL,
+#                                                     outcome_variable = "lucpfip_pixelcount_total",
+#                                                     catchment_radius = 5e4,
+#                                                     dynamics = FALSE,
+#                                                     commo = c("ffb", "cpo"),
+#                                                     yoyg = FALSE,
+#                                                     short_run = "unt level", # does not matter if dynamics == FALSE
+#                                                     imp = 1,
+#                                                     distribution = "quasipoisson",
+#                                                     fixed_effects = FE,
+#                                                     x_pya = 3,
+#                                                     lag_or_not = "_lag1", # bien vérifier ça !
+#                                                     controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+#                                                                  "n_reachable_uml"),
+#                                                     pya_ov = FALSE,
+#                                                     weights = TRUE,
+#                                                     cluster = "cluster"
+# )
+# i <- i+1
+# }
+
+
+# ## For different past year average
+# for(XPYA in c(2, 4)){
+#   for(FE in c("parcel_id", "parcel_id + district_year")){
+#   reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+#                                                       island = ISL,
+#                                                       outcome_variable = "lucpfip_pixelcount_total",
+#                                                       catchment_radius = 3e4,
+#                                                       dynamics = FALSE,
+#                                                       commo = c("ffb", "cpo"),
+#                                                       yoyg = FALSE,
+#                                                       short_run = "unt level", # does not matter if dynamics == FALSE
+#                                                       imp = 1,
+#                                                       distribution = "quasipoisson",
+#                                                       fixed_effects = FE,
+#                                                       x_pya = XPYA,
+#                                                       lag_or_not = "_lag1", # bien vérifier ça !
+#                                                       controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+#                                                                    "n_reachable_uml"),
+#                                                       pya_ov = FALSE,
+#                                                       weights = TRUE,
+#                                                       cluster = "cluster"
+#   )
+#   i <- i+1
+# }
+# }
+
+## For poisson distribution
+for(FE in c("parcel_id", "parcel_id + district_year")){
+  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                      island = ISL,
+                                                      outcome_variable = "lucpfip_pixelcount_total",
+                                                      catchment_radius = 3e4,
+                                                      dynamics = FALSE,
+                                                      commo = c("ffb", "cpo"),
+                                                      yoyg = FALSE,
+                                                      short_run = "unt level", # does not matter if dynamics == FALSE
+                                                      imp = 1,
+                                                      distribution = "poisson",
+                                                      fixed_effects = FE,
+                                                      x_pya = 3,
+                                                      lag_or_not = "_lag1", # bien vérifier ça !
+                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                   "n_reachable_uml"),
+                                                      pya_ov = FALSE,
+                                                      weights = TRUE,
+                                                      cluster = "cluster"
+  )
+  i <- i+1
+}
+
+## For different fixed effects
+for(FE in c("parcel_id + year", "parcel_id + province_year")){
+  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                      island = ISL,
+                                                      outcome_variable = "lucpfip_pixelcount_total",
+                                                      catchment_radius = 3e4,
+                                                      dynamics = FALSE,
+                                                      commo = c("ffb", "cpo"),
+                                                      yoyg = FALSE,
+                                                      short_run = "unt level", # does not matter if dynamics == FALSE
+                                                      imp = 1,
+                                                      distribution = "quasipoisson",
+                                                      fixed_effects = FE,
+                                                      x_pya = 3,
+                                                      lag_or_not = "_lag1", # bien vérifier ça !
+                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                   "n_reachable_uml"),
+                                                      pya_ov = FALSE,
+                                                      weights = TRUE,
+                                                      cluster = "cluster"
+  )
+  i <- i+1
+}
+
+## CONTROLS
+## Without the other commodity price signal
+for(FE in c("parcel_id", "parcel_id + district_year")){
+  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                      island = ISL,
+                                                      outcome_variable = "lucpfip_pixelcount_total",
+                                                      catchment_radius = 3e4,
+                                                      dynamics = FALSE,
+                                                      commo = VAR,
+                                                      yoyg = FALSE,
+                                                      short_run = "unt level", # does not matter if dynamics == FALSE
+                                                      imp = 1,
+                                                      distribution = "quasipoisson",
+                                                      fixed_effects = FE,
+                                                      x_pya = 3,
+                                                      lag_or_not = "_lag1", # bien vérifier ça !
+                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                   "n_reachable_uml"),
+                                                      pya_ov = FALSE,
+                                                      weights = TRUE,
+                                                      cluster = "cluster"
+  )
+  i <- i+1
+}
+
+## Without ownership control
+for(FE in c("parcel_id", "parcel_id + district_year")){
+  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                      island = ISL,
+                                                      outcome_variable = "lucpfip_pixelcount_total",
+                                                      catchment_radius = 3e4,
+                                                      dynamics = FALSE,
+                                                      commo = c("ffb", "cpo"),
+                                                      yoyg = FALSE,
+                                                      short_run = "unt level", # does not matter if dynamics == FALSE
+                                                      imp = 1,
+                                                      distribution = "quasipoisson",
+                                                      fixed_effects = FE,
+                                                      x_pya = 3,
+                                                      lag_or_not = "_lag1", # bien vérifier ça !
+                                                      controls = c("n_reachable_uml"),
+                                                      pya_ov = FALSE,
+                                                      weights = TRUE,
+                                                      cluster = "cluster"
+  )
+  i <- i+1
+}
+
+## Without n_reachable_uml
+for(FE in c("parcel_id", "parcel_id + district_year")){
+  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                      island = ISL,
+                                                      outcome_variable = "lucpfip_pixelcount_total",
+                                                      catchment_radius = 3e4,
+                                                      dynamics = FALSE,
+                                                      commo = c("ffb", "cpo"),
+                                                      yoyg = FALSE,
+                                                      short_run = "unt level", # does not matter if dynamics == FALSE
+                                                      imp = 1,
+                                                      distribution = "quasipoisson",
+                                                      fixed_effects = FE,
+                                                      x_pya = 3,
+                                                      lag_or_not = "_lag1", # bien vérifier ça !
+                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp"),
+                                                      pya_ov = FALSE,
+                                                      weights = TRUE,
+                                                      cluster = "cluster"
+  )
+  i <- i+1
+}
+
+
+## With percentage CPO exported
+for(FE in c("parcel_id", "parcel_id + district_year")){
+  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                      island = ISL,
+                                                      outcome_variable = "lucpfip_pixelcount_total",
+                                                      catchment_radius = 3e4,
+                                                      dynamics = FALSE,
+                                                      commo = c("ffb", "cpo"),
+                                                      yoyg = FALSE,
+                                                      short_run = "unt level", # does not matter if dynamics == FALSE
+                                                      imp = 1,
+                                                      distribution = "quasipoisson",
+                                                      fixed_effects = FE,
+                                                      x_pya = 3,
+                                                      lag_or_not = "_lag1", # bien vérifier ça !
+                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                   "n_reachable_uml",
+                                                                   "wa_prex_cpo_imp1"),
+                                                      pya_ov = FALSE,
+                                                      weights = TRUE,
+                                                      cluster = "cluster"
+  )
+  i <- i+1
+}
+
+## With past year average outcome 
+for(FE in c("parcel_id", "parcel_id + district_year")){
+  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                      island = ISL,
+                                                      outcome_variable = "lucpfip_pixelcount_total",
+                                                      catchment_radius = 3e4,
+                                                      dynamics = FALSE,
+                                                      commo = c("ffb", "cpo"),
+                                                      yoyg = FALSE,
+                                                      short_run = "unt level", # does not matter if dynamics == FALSE
+                                                      imp = 1,
+                                                      distribution = "quasipoisson",
+                                                      fixed_effects = FE,
+                                                      x_pya = 3,
+                                                      lag_or_not = "_lag1", # bien vérifier ça !
+                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                   "n_reachable_uml"),
+                                                      pya_ov = TRUE,
+                                                      weights = TRUE,
+                                                      cluster = "cluster"
+  )
+  i <- i+1
+}
+
+## Without IBS mills sample coverage weights
+for(CR in c(3e4, 5e4)){
+  for(FE in c("parcel_id", "parcel_id + district_year")){
+    reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                        island = ISL,
+                                                        outcome_variable = "lucpfip_pixelcount_total",
+                                                        catchment_radius = CR,
+                                                        dynamics = FALSE,
+                                                        commo = c("ffb", "cpo"),
+                                                        yoyg = FALSE,
+                                                        short_run = "unt level", # does not matter if dynamics == FALSE
+                                                        imp = 1,
+                                                        distribution = "quasipoisson",
+                                                        fixed_effects = FE,
+                                                        x_pya = 3,
+                                                        lag_or_not = "_lag1", # bien vérifier ça !
+                                                        controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                     "n_reachable_uml"),
+                                                        pya_ov = FALSE,
+                                                        weights = FALSE,
+                                                        cluster = "cluster"
+    )
+    i <- i+1
+  }
+}
+
+## With two way clustering
+reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                    island = ISL,
+                                                    outcome_variable = "lucpfip_pixelcount_total",
+                                                    catchment_radius = 3e4,
+                                                    dynamics = FALSE,
+                                                    commo = c("ffb", "cpo"),
+                                                    yoyg = FALSE,
+                                                    short_run = "unt level", # does not matter if dynamics == FALSE
+                                                    imp = 1,
+                                                    distribution = "quasipoisson",
+                                                    fixed_effects = "parcel_id + district_year",
+                                                    x_pya = 3,
+                                                    lag_or_not = "_lag1", # bien vérifier ça !
+                                                    controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                 "n_reachable_uml"),
+                                                    pya_ov = FALSE,
+                                                    weights = TRUE,
+                                                    cluster = "twoway"
+)
+i <- i+1
+
+## Run some specifications with negbin 
+# save it before negbin regressions which tend to make the R session crash.
+# if(length(ISL) ==1){
+# saveRDS(reg_stats_indvar_list, file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_",ISL,"_",VAR)))
+# reg_stats_indvar_list <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_",ISL,"_",VAR)))
+# }else{
+#   saveRDS(reg_stats_indvar_list, file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_all_",VAR)))
+#   reg_stats_indvar_list <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_all_",VAR)))
+# }
+# 
+# i <- length(reg_stats_indvar_list)+1
+
+for(CR in c(3e4, 5e4)){
+  #for(IMP in c(1, 2)){
+  #for(DISTR in c("quasipoisson", "negbin")){#
+  for(XPYA in c(2, 3, 4)){
+    #for(LAG in c("_lag1", "")){
+    for(FE in c("parcel_id", "parcel_id + district_year")){
+      reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
+                                                          island = ISL,
+                                                          outcome_variable = "lucpfip_pixelcount_total",
+                                                          catchment_radius = CR,
+                                                          dynamics = FALSE,
+                                                          commo = c("ffb", "cpo"),
+                                                          yoyg = FALSE,
+                                                          short_run = "unt level", # does not matter if dynamics == FALSE
+                                                          imp = 1,
+                                                          distribution = "negbin",
+                                                          fixed_effects = FE,
+                                                          x_pya = XPYA,
+                                                          lag_or_not = "_lag1", # bien vérifier ça !
+                                                          controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+                                                                       "n_reachable_uml"),
+                                                          pya_ov = FALSE,
+                                                          weights = FALSE,
+                                                          cluster = "cluster"
+      )
+      i <- i+1
+    }
+  }
+}
+# }
+
+# convert to dataframe to be able to chart
+reg_stats_indvar <- bind_rows(reg_stats_indvar_list)
+
+if(sum(duplicated(reg_stats_indvar))==0 & nrow(reg_stats_indvar)+1 == i){
+  # save it 
+  if(length(ISL) ==1){
+    saveRDS(reg_stats_indvar, file.path(paste0("temp_data/reg_results/spec_chart_df_",ISL,"_",VAR)))
+  }else{
+    saveRDS(reg_stats_indvar, file.path(paste0("temp_data/reg_results/spec_chart_df_all_",VAR)))
+  }
+}else{print("SOMETHING WENT WRONG")}
+
+
+
+# find position of model to highlight in original data frame
+a <- reg_stats_indvar
+model_idx <- a[a$lucpfip_pixelcount_total & 
+                 a$CR_30km & 
+                 a$imp1 &
+                 a$quasipoisson &
+                 a$pya_4 &
+                 a$lag_or_not &
+                 (a$unit_fe | a$unit_distryear_fe) &
+                 a$two_commo & 
+                 a$control_own & 
+                 a$n_reachable_uml_control &
+                 a$prex_cpo_control == FALSE &
+                 a$pya_outcome_control == FALSE &
+                 a$weights &
+                 a$oneway_cluster, ] %>% rownames()
+model_idx
+
+schart(reg_stats_indvar, 
+       labels = schart_labels,
+       order="increasing",
+       heights=c(.6,1.5),
+       pch.dot=c(20,20,20,20),
+       ci=c(.95),
+       cex=c(0.6,0.7),
+       highlight=model_idx, 
+       #col.est=c(rgb(0,0,0,0.1),rgb(0,0.2,0.6, 0.1)),
+       col.est=c("grey70", "red3"),
+       #col.est2=c(rgb(0,0,0,0.08),"lightblue"),
+       #col.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
+       col.dot=c("grey70","grey95","grey95","red3"),
+       #bg.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
+       bg.dot=c("grey60","grey95","grey95","white"),
+       adj=c(1,1), 
+       #offset=c(10.4,10.1),
+       leftmargin = 12,
+       ylab = paste0("Semi-elasticity to ", toupper(VAR), " price signal"),
+       lwd.est = 5.8,
+       lwd.symbol = 1
+       #pch.est=20
+)
+
+
+### REMOVE SOME SPECIFICATIONS IF DESIRED 
+ISL <- c("Sumatra", "Kalimantan", "Papua")
+ISL <- "Kalimantan"
+VAR <- "cpo"
+if(length(ISL)==1){
+  a <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_",ISL,"_",VAR)))
+}else{
+  a <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_all_",VAR)))
+}
+colnames(a)
+nrow(a)
+# remove regressions with: 
+a <- dplyr::filter(a, !(CR_50km & negbin) & # negbin with 50km CR
+                     !((pya_5 | pya_3) & negbin) & # negbin with other pya lengths than 4
+                     !lucfip_pixelcount_30th & # lucfip outcome measure
+                     lag_or_not & # not lagged regressors
+                     imp1) # weaker imputations in data cleaning (imp2) 
+
+# change indicator variables and labels to lighten the chart
+funt <- function(x){any(x) & !all(x)} # returns TRUE iff there is any TRUE in the columns, but not only  
+reg_stats_indvar_rstr <- cbind(a[,c(1,2)], select_if(a[,-c(1,2)], .predicate=funt))
+colnames(reg_stats_indvar_rstr)
+
+schart_labels_rstr <- list("Sample:" = c("30km catchment radius",
+                                         "50km catchment radius"),
+                           "Distribution assumption:" = c("Poisson",
+                                                          "Quasi-Poisson", 
+                                                          "Negative Binomial"),
+                           "Price signal averaged over:" = c("3 years", 
+                                                             "4 years", 
+                                                             "5 years"), 
+                           "Fixed effects:" = c("Grid cell", 
+                                                "Grid cell and year", 
+                                                "Grid cell and province-year",
+                                                "Grid cell and district-year"),
+                           "Controls:" = c(paste0(toupper(c("ffb", "cpo")[!grepl(VAR, c("ffb", "cpo"))]), " price signal"), 
+                                           "Ownership",
+                                           "# reachable UML mills", 
+                                           "% CPO exported", 
+                                           "PYA outcome"),
+                           "Weights" = "", 
+                           "Standard errors:" = c("Grid cell cluster", 
+                                                  "Two-way cluster")
+) 
+
+# find position of model to highlight in original data frame
+a <- reg_stats_indvar_rstr
+model_idx_rstr <- a[a$CR_30km & 
+                      a$quasipoisson &
+                      a$pya_4 &
+                      (a$unit_fe | a$unit_distryear_fe) &
+                      a$two_commo & 
+                      a$control_own & 
+                      a$n_reachable_uml_control &
+                      a$prex_cpo_control == FALSE &
+                      a$pya_outcome_control == FALSE &
+                      a$weights &
+                      a$oneway_cluster, ] %>% rownames()
+model_idx_rstr
+
+schart(reg_stats_indvar_rstr, 
+       labels = schart_labels_rstr,
+       order="increasing",
+       heights=c(.6,1.5),
+       pch.dot=c(20,20,20,20),
+       ci=c(.95),
+       cex=c(0.6,0.7),
+       highlight=model_idx_rstr, 
+       #col.est=c(rgb(0,0,0,0.1),rgb(0,0.2,0.6, 0.1)),
+       col.est=c("grey70", "red3"),
+       #col.est2=c(rgb(0,0,0,0.08),"lightblue"),
+       #col.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
+       col.dot=c("grey70","grey95","grey95","red3"),
+       #bg.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
+       bg.dot=c("grey60","grey95","grey95","white"),
+       adj=c(1,1), 
+       #offset=c(10.4,10.1),
+       leftmargin = 12,
+       ylab = paste0("Semi-elasticity to ", toupper(VAR), " price signal"),
+       lwd.est = 5.8,
+       lwd.symbol = 1
+       #pch.est=20
+)
+
+
+
+
+
+
+
+
+
+
+
 ##### ZERO INFLATED MODELLING ##### 
 catchment_radius <- 3e4
 outcome_variable <- "lucpfip_pixelcount_total"
@@ -1057,8 +2098,6 @@ for(i in 1:length(island_list)){
 
 
 
-
-
 ##### INSTRUMENTAL VARIABLE ANALYSIS #####
 
 # We use a control function approach 
@@ -1073,7 +2112,7 @@ for(i in 1:length(island_list)){
 
 catchment_radius <- 3e4
 island <- c("Sumatra", "Kalimantan", "Papua")
-island <- "Kalimantan"
+island <- "Sumatra"
 outcome_variable <- "lucpfip_pixelcount_total"
 dynamics <- FALSE
 commo <- c("cpo")#"ffb", 
@@ -1082,19 +2121,21 @@ short_run <- "unt level" # from c("unt_level", "dev", "yoyg")
 imp <- 1
 x_pya <- 3 # 2, 3 or 4
 lag_or_not <- "_lag1" # from c("_lag1", "")
-controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml")
+controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml",
+              paste0("wa_ffb_price_imp", imp, "_",x_pya+1,"ya"))
 pya_ov <- FALSE
 cluster_var <- "parcel_id"
-iv <- 1 # 1,2,3,4 possible
 fe <- "parcel_id + year"# needs to include year (because of the structural derivation of the first stage.
 # so either "parcel_id + year" or "parcel_id + district^year"
 
 
+iv <- 2 # 1,2,3,4 possible
+
 
 ### VARIABLES INVOLVED 
 
-# we need a different kind of specifications as elsewhere, because we do not want to distinguish 
-# between long and short run, but want to include only short run measures. 
+# we need a different kind of specifications as elsewhere, because we cannot have LR measures (X ya variables)
+# as instrumented variables. 
 endo_var <- paste0("wa_",commo,"_price_imp",imp,lag_or_not)
 
 # add pya outcome variable 
@@ -1148,26 +2189,53 @@ if(outcome_variable == "lucfip_pixelcount_30th" | outcome_variable == "lucfip_ha
 # - are kept by fixest, i.e. that have no NA on any of the variables used (in either stage)
 filter_vec <- base::rowSums(!is.na(d[,c("parcel_id", "year", outcome_variable, endo_var, controls, instrument)]))
 filter_vec <- filter_vec == length(c("parcel_id", "year", outcome_variable, endo_var, controls, instrument))
-d_nona <- d[filter_vec, c("parcel_id", "year", outcome_variable, endo_var, controls, instrument)]
+d_nona <- d[filter_vec, c("parcel_id", "district", "year", outcome_variable, endo_var, controls, instrument)]
 anyNA(d_nona)
 
 # - and those with not only zero outcome, i.e. that feglm would remove, see ?fixest::obs2remove
 d_clean <- d_nona[-obs2remove(fml_2nd, d_nona, family = "poisson"),]
 
-rm(d, d_nona)
+#rm(d, d_nona)
 
 
 ### COEFFICIENTS 
 
 # # 1st stage 
-# est_1st <- fixest::feols(fml_1st, 
-#                          data = d_clean_boot)
-# # save estiamted residuals
-# d_clean_boot$est_res_1st <- est_1st$residuals
-# # 2nd stage
-# est_2nd <- fixest::feglm(fml_2nd, 
-#                          data = d_clean_boot, 
-#                          family = "poisson")
+est_1st <- fixest::feols(fml_1st,
+                         data = d_clean)
+# save estiamted residuals
+d_clean$est_res_1st <- est_1st$residuals
+# 2nd stage
+est_2nd <- fixest::feglm(fml_2nd,
+                         data = d_clean,
+                         family = "quasipoisson")
+
+# compare with standard 2sls
+d_clean$est_fit_1st <- est_1st$fitted.values
+std_fml_2nd <- as.formula(paste0(outcome_variable,
+                                 " ~ est_fit_1st +",
+                                 paste0(controls, collapse = "+"),
+                                 " | ",
+                                 fe))
+# 2nd stage
+std_est_2nd <- fixest::feglm(std_fml_2nd,
+                         data = d_clean,
+                         family = "quasipoisson")
+
+# and with non-IV and same RHS
+direct_fml <- as.formula(paste0(outcome_variable,
+                                 " ~ ", endo_var, 
+                                 " + ",
+                                 paste0(controls, collapse = "+"),
+                                 " | ",
+                                 fe))
+dir_est_2nd <- fixest::feglm(direct_fml,
+                             data = d_clean,
+                             family = "quasipoisson")
+
+
+
+
 # library(pglm)
 # fml_2nd_std <- as.formula(paste0(outcome_variable,
 #                              " ~ ", endo_var,
@@ -1212,48 +2280,57 @@ sum(unlist(n_clusters)) == length(unique(d_clean$parcel_id))
 
 # function that will tell boot::boot how to sample data at each replicate of statistic
 ran.gen_cluster <- function(original_data, arg_list){
+
+  
+  
   cl_boot_dat <- NULL
+  
   for(s in arg_list[["unique_sizes"]]){
-    
     # resample cluster names 
     sample_cl_s <- sample(arg_list[["cluster_names"]][[s]], 
                           arg_list[["number_clusters"]][[s]], 
                           replace = TRUE) 
+    sample_cl_s_tab <- table(sample_cl_s)
     
-    for(g in 1:arg_list[["number_clusters"]][[s]]){
-      # name of the g_th cluster that got resampled
-      g_name <- sample_cl_s[g]
+    for(n in 1:max(sample_cl_s_tab)){
+      # vector to select obs. that are within the sampled clusters. 
+      sel <- as.character(original_data[,arg_list[["cluster_variable"]]]) %in% names(sample_cl_s_tab[sample_cl_s_tab %in% n])
       
-      # select the s observations from cluster g 
-      # if this cluster name was picked more than once, then its obs. will be added again for another value of g. 
-      cc <- original_data[as.character(original_data[,arg_list[["cluster_variable"]]]) == g_name,]
+      # replicate the selected data n times
+      clda <- original_data[sel,][rep(seq_len(nrow(original_data[sel,])), n), ]
       
       # we need to give a new cluster identifier during the resampling, otherwise a cluster sampled more than once 
       # will be "incorrectly treated as one large cluster rather than two distinct cluster" (by the fixed effects) (Cameron 2015)
-      cc[,arg_list[["cluster_variable"]]] <- paste0(s,"_",g)
       
-      cl_boot_dat <- rbind(cl_boot_dat, cc)
+      #identify row names without periods, and add ".0" 
+      row.names(clda)[grep("\\.", row.names(clda), invert = TRUE)] <- paste0(grep("\\.", row.names(clda), invert = TRUE, value = TRUE),".0")
+      # add the suffix due to the repetion after the existing cluster identifier. 
+      clda[,arg_list[["cluster_variable"]]] <- paste0(clda[,arg_list[["cluster_variable"]]], 
+                                                      sub(".*\\.","_",row.names(clda)))
+      
+      cl_boot_dat <- cl_boot_dat %>% rbind(clda) 
     }
-  }
-  # test that the returned data are the same dimension as input
-  # dim(cl_boot_dat) 
+  }  
+  
+  #test that the returned data are the same dimension as input
+  # dim(cl_boot_dat)
   # dim(original_data)
   # dim(cl_boot_dat) == dim(d_clean)
   # 
-  # # test new clusters are not duplicated
-  # anyDuplicated(cl_boot_dat[,c(cluster_variable,"year")])
-  # 
+  # # test new clusters are not duplicated (correct if anyDuplicated returns 0)
+  # base::anyDuplicated(cl_boot_dat[,c("parcel_id","year")])
+
   return(cl_boot_dat)
 }
 
 # test the function
-test_boot_d <- ran.gen_cluster(original_data = d_clean, 
-                               cluster_variable = cluster_var, 
-                               unique_sizes = u_sizes, 
-                               cluster_names = cl_names, 
-                               number_clusters = n_clusters)
-dim(test_boot_d)
-dim(d_clean)
+# test_boot_d <- ran.gen_cluster(original_data = d_clean, 
+#                                arg_list = list(cluster_variable = cluster_var, 
+#                                                unique_sizes = u_sizes, 
+#                                                cluster_names = cl_names, 
+#                                                number_clusters = n_clusters))
+# dim(test_boot_d)
+# dim(d_clean)
 
 ctrl_fun_endo <- function(myfun_data, fsf, ssf){
   
@@ -1282,7 +2359,7 @@ bootstraped <- boot(data = d_clean,
                                cluster_names = cl_names, 
                                number_clusters = n_clusters),
                     sim = "parametric",
-                    R = 2)
+                    R = 200)
 
 norm.ci(bootstraped, index = 1) # equivalent to : 
 norm.ci(t0 = bootstraped$t0[1],
@@ -1305,8 +2382,28 @@ bootstraped$t0[1] + qnorm((1+0.95)/2)*0.0281059
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##### REGRESSION TABLES ##### 
-# We display grid cell FE and grid cell + district^year FE 
+# We display grid cell FE and grid cell + district_year FE 
 # We separate dynamics = FALSE and = TRUE in two tables, bc difficult to read otherwise.
 # Group three island groups in one table ? (6 columns) --> addresses the objective of inter-groups comparisons. 
 # Group weighted vs. not weighted: there are some != in Kalimantan. But it's not worth taking so much space.
@@ -1480,7 +2577,7 @@ result_list_nodyn <- lapply(island_list, make_reg_tables,
                             short_run = "unt level", 
                             imp = 1,
                             distribution = "quasipoisson",
-                            fe_set = c("parcel_id", "parcel_id + district^year"),
+                            fe_set = c("parcel_id", "parcel_id + district_year"),
                             x_pya = 4,
                             lag_or_not = "_lag1",
                             controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
@@ -1498,7 +2595,7 @@ result_list_dyn <- lapply(island_list, make_reg_tables,
                             short_run = "unt level", 
                             imp = 1,
                             distribution = "quasipoisson",
-                            fe_set = c("parcel_id", "parcel_id + district^year"),
+                            fe_set = c("parcel_id", "parcel_id + district_year"),
                             x_pya = 4,
                             lag_or_not = "_lag1",
                             controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
@@ -1566,303 +2663,63 @@ result_list_dyn <- lapply(island_list, make_reg_tables,
 
 
 
-##### SPECIFICATION CHARTS / ROBUSTNESS CHECKS #####
-# These charts compare coefficients from a single dependent variable across different models/specifications
-# Therefore we produce one such chart for CPO TOTAL, FFB TOTAL (and possibly for LRs and SRs too)
-# The function is written in base R and exactly copied from https://github.com/ArielOrtizBobea/spec_chart/blob/master/spec_chart_function.R
+##### MARGINAL EFFECTS ##### 
   
-schart <- function(data, labels=NA, highlight=NA, n=1, index.est=1, index.se=2, index.ci=NA,
-                     order="asis", ci=.95, ylim=NA, axes=T, heights=c(1,1), leftmargin=11, offset=c(0,0), ylab="Coefficient", lwd.border=1,
-                     lwd.est=4, pch.est=21, lwd.symbol=2, ref=0, lwd.ref=1, lty.ref=2, col.ref="black", band.ref=NA, col.band.ref=NA,length=0,
-                     col.est=c("grey60", "red3"), col.est2=c("grey80","lightcoral"), bg.est=c("white", "white"),
-                     col.dot=c("grey60","grey95","grey95","red3"),
-                     bg.dot=c("grey60","grey95","grey95","white"),
-                     pch.dot=c(22,22,22,22), fonts=c(2,1), adj=c(1,1),cex=c(1,1)) {
-    
-    # Authors: Ariel Ortiz-Bobea (ao332@cornell.edu).
-    # Version: March 10, 2020
-    # If you like this function and use it, please send me a note. It might motivate
-    # me to imporove it or write new ones to share.
-    
-    # Description of arguments
-    
-    # Data:
-    # data: data.frame with data, ideally with columns 1-2 with coef and SE, then logical variables.
-    # labels: list of labels by group. Can also be a character vector if no groups. Default is rownames of data.
-    # index.est: numeric indicating position of the coefficient column.
-    # index.se: numeric indicating position of the SE column.
-    # index.ci: numeric vector indicating position of low-high bars for SE. Can take up to 2 CI, so vector can be up to length 4
-    
-    # Arrangement and basic setup:
-    # highlight: numeric indicating position(s) of models (row) to highlight in original dataframe.
-    # n: size of model grouping. n=1 removes groupings. A vector yields arbitrary groupings.
-    # order: whether models should be sorted or not. Options: "asis", "increasing", "decreasing"
-    # ci: numeric indicating level(s) of confidence. 2 values can be indicated.
-    # ylim: if one wants to set an arbitrary range for Y-axis
-    
-    # Figure layout:
-    # heights: Ratio of top/bottom panel. Default is c(1,1) for 1 50/50 split
-    # leftmargin: amount of space on the left margin
-    # offset: vector of numeric with offset for the group and specific labels
-    # ylab: Label on the y-axis of top panel. Default is "Coefficient"
-    # lwd.border: width of border and other lines
-    
-    # Line and symbol styles and colors:
-    # lwd.est: numeric indicating the width of lines in the top panel
-    # ref: numeric vector indicating horizontal reference lines(s) Default is 0.
-    # lty.ref: Style of reference lines. Default is dash line (lty=2).
-    # lwd.ref. Width of reference lines. Default is 1.
-    # col.ref: vector of colors of reference lines. Default is black.
-    # band.ref: vector of 2 numerics indicating upper abdn lower height for a band
-    # col.band.ref: color of this band
-    # col.est: vector of 2 colors indicating for "other" and "highlighted" models
-    # col.est2: same for outer confidence interval if more than 1 confidence interval
-    # col.dot: vector of 4 colors indicating colors for borders of symbol in bottom panel for "yes", "no", "NA", and "yes for highlighted model"
-    # bg.dot : vector of 4 colors indicating colors for background of symbol in bottom panel for "yes", "no", "NA", and "yes for highlighted model"
-    # pch.dot: style of symbols in bottom panel for "yes", "no", "NA", and "yes for highlighted model"
-    # length: length of the upper notch on th vertical lines. default is 0.
-    
-    # Letter styles
-    # fonts: numeric vector indicating font type for group (first) and other labels (second) (e.g. 1:normal, 2:bold, 3:italic)
-    # adj: numeric vector indicating alignment adjustment for text label: 0 is left, .5 is center, 1 is right.
-    # cex: numeric vector for size of fonts for top panel (first) and bottom panel (Second)
-    
-    # 1. Set up
-    if (T) {
-      # Arrange data
-      d <- data
-      rownames(d) <- 1:nrow(d)
-      
-      # Create ordering vector
-      if (order=="asis")       o <- 1:length(d[,index.est])
-      if (order=="increasing") o <- order(d[,index.est])
-      if (order=="decreasing") o <- order(-d[,index.est])
-      if (!is.numeric(d[,index.est])) {warning("index.est does not point to a numeric vector.") ; break}
-      d <- d[o,]
-      est <- d[,index.est] # Estimate
-      if (length(index.ci)>1) {
-        l1 <- d[,index.ci[1]]
-        h1 <- d[,index.ci[2]]
-        if (length(index.ci)>2) {
-          l2 <- d[,index.ci[3]]
-          h2 <- d[,index.ci[4]]
-        }
-      } else {
-        if (!is.numeric(d[,index.se]))  {warning("index.se does not point to a numeric vector.") ; break}
-        se  <- d[,index.se] # Std error
-        ci <- sort(ci)
-        a <- qnorm(1-(1-ci)/2)
-        l1 <- est - a[1]*se
-        h1 <- est + a[1]*se
-        if (length(ci)>1) {
-          l2 <- est - a[2]*se
-          h2 <- est + a[2]*se
-        }
-      }
-      
-      # Table
-      if (length(index.ci)>1) remove.index <- c(index.est,index.ci) else remove.index <- c(index.est,index.se)
-      remove.index <- remove.index[!is.na(remove.index)]
-      tab <- t(d[,-remove.index]) # get only the relevant info for bottom panel
-      if (!is.list(labels) & !is.character(labels)) labels <- rownames(tab)
-      
-      # Double check we have enough labels
-      if ( nrow(tab) != length(unlist(labels))) {
-        print("Warning: number of labels don't match number of models.")
-        labels <- rownames(tab)
-      }
-      
-      # Plotting objects
-      xs <- 1:nrow(d) # the Xs for bars and dots
-      if (n[1]>1 & length(n)==1) xs <- xs + ceiling(seq_along(xs)/n) - 1 # group models by n
-      if (length(n)>1) {
-        if (sum(n) != nrow(d) ) {
-          warning("Group sizes don't add up.")
-        } else {
-          idx <- unlist(lapply(1:length(n), function(i) rep(i,n[i])))
-          xs <- xs + idx - 1
-        }
-      }
-      h <- nrow(tab) + ifelse(is.list(labels),length(labels),0) # number of rows in table
-      # Location of data and labels
-      if (is.list(labels)) {
-        index <- unlist(lapply(1:length(labels), function(i) rep(i, length(labels[[i]])) ))
-        locs <- split(1:length(index),index)
-        locs <- lapply(unique(index), function(i) {
-          x <- locs[[i]]+i-1
-          x <- c(x,max(x)+1)
-        })
-        yloc  <- unlist(lapply(locs, function(i) i[-1])) # rows where data points are located
-        yloc2 <- sapply(locs, function(i) i[1]) # rows where group lables are located
-      } else {
-        yloc <- 1:length(labels)
-      }
-      
-      # Range
-      if (is.na(ylim[1]) | length(ylim)!=2) {
-        if (length(index.ci)>2 | length(ci)>1) {
-          ylim <- range(c(l2,h2,ref)) # range that includes reference lines
-        } else {
-          ylim <- range(c(l1,h1,ref))
-        }
-        ylim <- ylim + diff(ylim)/10*c(-1,1) # and a bit more
-      }
-      xlim <- range(xs) #+ c(1,-1)
-    }
-    
-    # 2. Plot
-    if (T) {
-      #par(mfrow=c(2,1), mar=c(0,leftmargin,0,0), oma=oma, xpd=F, family=family)
-      layout(t(t(2:1)), height=heights, widths=1)
-      par(mar=c(0,leftmargin,0,0), xpd=F)
-      
-      # Bottom panel (plotted first)
-      plot(est, xlab="", ylab="", axes=F, type="n", ylim=c(h,1), xlim=xlim)
-      lapply(1:nrow(tab), function(i) {
-        # Get colors and point type
-        type <- ifelse(is.na(tab[i,]),3,ifelse(tab[i,]==TRUE,1, ifelse(tab[i,]==FALSE,2,NA)))
-        type <- ifelse(names(type) %in% paste(highlight) & type==1,4,type) # replace colors for baseline model
-        col <- col.dot[type]
-        bg  <- bg.dot[type]
-        pch <- as.numeric(pch.dot[type])
-        sel <- is.na(pch)
-        # Plot points
-        points(xs, rep(yloc[i],length(xs)), col=col, bg=bg, pch=pch, lwd=lwd.symbol)
-        points(xs[sel], rep(yloc[i],length(xs))[sel], col=col[sel], bg=bg[sel], pch=pch.dot[3]) # symbol for missing value
-        
-      })
-      par(xpd=T)
-      if (is.list(labels)) text(-offset[1], yloc2, labels=names(labels), adj=adj[1], font=fonts[1], cex=cex[2])
-      # Does not accomodate subscripts
-      text(-rev(offset)[1], yloc , labels=unlist(labels), adj=rev(adj)[1], font=fonts[2], cex=cex[2])
-      # Accomodates subscripts at the end of each string
-      if (F) {
-        labels1 <- unlist(labels)
-        lapply(1:length(labels1), function(i) {
-          a  <- labels1[i]
-          a1 <- strsplit(a,"\\[|\\]")[[1]][1]
-          a2 <- rev(strsplit(a,"\\[|\\]")[[1]])[1]
-          if (identical(a1,a2))  a2 <- NULL
-          text(-rev(offset)[1], yloc[i], labels=bquote(.(a1)[.(a2)]), adj=adj[2], font=fonts[2], cex=cex[2])
-        })
-      }
-      par(xpd=F)
-      
-      # Top panel (plotted second)
-      colvec  <- ifelse(colnames(tab) %in% paste(highlight), col.est[2], col.est[1])
-      bg.colvec  <- ifelse(colnames(tab) %in% paste(highlight), bg.est[2], bg.est[1])
-      colvec2 <- ifelse(colnames(tab) %in% paste(highlight),col.est2[2], col.est2[1])
-      plot(est, xlab="", ylab="", axes=F, type="n", ylim=ylim, xlim=xlim)
-      # Band if present
-      if (!is.na(band.ref[1])) {
-        rect(min(xlim)-diff(xlim)/10, band.ref[1], max(xlim)+diff(xlim)/10, band.ref[2], col=col.band.ref, border=NA)
-      }
-      # Reference lines
-      abline(h=ref, lty=lty.ref, lwd=lwd.ref, col=col.ref)
-      # Vertical bars
-      if (length(ci)>1 | length(index.ci)>2) arrows(x0=xs, y0=l2, x1=xs, y1=h2, length=length, code=3, lwd=rev(lwd.est)[1], col=colvec2, angle=90)
-      arrows(x0=xs, y0=l1, x1=xs, y1=h1, length=length, code=3, lwd=lwd.est[1]     , col=colvec, angle=90)
-      points(xs, est, pch=pch.est, lwd=lwd.symbol, col=colvec, bg=bg.colvec)
-      # Axes
-      if (axes) {
-        axis(2, las=2, cex.axis=cex[1], lwd=lwd.border)
-        axis(4, labels=NA, lwd=lwd.border)
-      }
-      mtext(ylab, side=2, line=3.5, cex=cex[1])
-      box(lwd=lwd.border)
-      
-    }
-    
-} 
+  ### ISLAND & DISTRICT SHAPES
+  island_sf <- st_read(file.path("temp_data/processed_indonesia_spatial/island_sf"))
+  names(island_sf)[names(island_sf)=="island"] <- "shape_des"
   
+  island_sf_prj <- st_transform(island_sf, crs = indonesian_crs)
   
-# make labels for the chart
-schart_labels <- list("Outcome variable:" = c("LUCPFIP", 
-                                                "LUCFIP 30%"),
-                        "Sample:" = c("30km catchment radius",
-                                      "50km catchment radius", 
-                                      "Data cleaning stronger imputations"),
-                        "Distribution assumption:" = c("Poisson",
-                                                       "Quasi-Poisson", 
-                                                       "Negative Binomial"),
-                        "Price signal averaged over:" = c("3 years", 
-                                                          "4 years", 
-                                                          "5 years"), 
-                        "One-year lagged regressors" = "", 
-                        "Fixed effects:" = c("Grid cell", 
-                                             "Grid cell and year", 
-                                             "Grid cell and province-year",
-                                             "Grid cell and district-year"),
-                        "Controls:" = c(paste0(toupper(c("ffb", "cpo")[!grepl(VAR, c("ffb", "cpo"))]), " price signal"), 
-                                        "Ownership",
-                                        "# reachable UML mills", 
-                                        "% CPO exported", 
-                                        "PYA outcome", 
-                                        "PYA outcome neighbors"),
-                        "Weights" = "", 
-                        "Standard errors:" = c("Grid cell cluster", 
-                                               "Two-way cluster")
-) 
-  
+  district_sf <- st_read(file.path("input_data/indonesia_spatial/district_shapefiles/district_2015_base2000.shp"))
+  district_names <- read.dta13(file.path("temp_data/processed_indonesia_spatial/province_district_code_names_93_2016.dta"))
+  district_names <- district_names[!duplicated(district_names$bps_),]
+  district_sf$d__2000 <- district_sf$d__2000 %>% as.character()
+  district_names$bps_ <- district_names$bps_ %>% as.character()
+  district_sf <- left_join(x = district_sf, y = district_names[,c("name_", "bps_")], 
+                           by = c("d__2000" = "bps_"),
+                           all = FALSE, all.x = FALSE, all.y = FALSE)
+  district_sf_prj <- st_transform(district_sf, crs = indonesian_crs)  
 
-  
-# We now produce the "data" argument for the function schart, i.e. we run regressions. 
-# catchment_radius <- 3e4
-# island <- "Kalimantan"
-# outcome_variable <- "lucpfip_pixelcount_total"
-# dynamics <- FALSE
-# commo <- c("ffb", "cpo")
-# yoyg <- FALSE
-# short_run <- "unt level"
-# imp <- 1
-# distribution <- "quasipoisson"
-# fixed_effects <- "parcel_id"
-# x_pya <- 3
-# lag_or_not <- "_lag1"
-# controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-#               "n_reachable_uml")
-# pya_ov <- FALSE
-# weights <- TRUE
-# cluster <- "cluster"
-# variable <- "ffb"
+outcome_variable = "lucpfip_pixelcount_total"
+dynamics = FALSE
+commo = c("cpo")#"ffb", 
+yoyg = FALSE
+short_run = "unt level"
+imp = 1
+distribution = "quasipoisson"
+fe = c("parcel_id + district_year")
+x_pya = 3
+lag_or_not = "_lag1"
 
-gen_reg_results_in_df <- function(variable, 
-                                   catchment_radius, # c(1e4, 3e4, 5e4)
-                                   island, # c("Sumatra", "Kalimantan", "Papua", c("Sumatra", "Kalimantan", "Papua"))
-                                   outcome_variable, # c("lucfip_pixelcount_30th", "lucfip_pixelcount_60th", "lucfip_pixelcount_90th", "lucfip_pixelcount_intact", "lucfip_pixelcount_degraded", "lucfip_pixelcount_total",)
-                                   dynamics, # TRUE or FALSE
-                                   commo, # c("ffb", "cpo", c("ffb", "cpo"))
-                                   yoyg, # TRUE or FALSE 
-                                   short_run, # sub or full vector from c("unt level", "yoyg", "dev") 
-                                   imp, # c(1,2)
-                                   distribution, # either "poisson", "quasipoisson", or "negbin"
-                                   fixed_effects,
-                                   x_pya, # c(2, 3, 4)
-                                   lag_or_not, # c("_lag1", "")
-                                   controls, # character vectors of base names of controls (don't specify in their names)
-                                   pya_ov, # logical, whether the pya (defined by x_pya) of the outcome_variable should be added in controls
-                                   weights,
-                                   cluster # one of etable's "se" argument (esp. "cluster" or "twoway". Passed to se argument of etable. 
-                                  ){
+pya_ov = FALSE 
+weights = FALSE
+cluster = "cluster"
+
+#i <- 1
+
+island_list <- list("Sumatra", "Kalimantan")#, c("Sumatra", "Kalimantan", "Papua")
+
+elmts <- rep(list(NA), length(island_list))
+names(elmts) <- c("Sumatra", "Kalimantan")#, "All"
+
+attributes <- c("est_results",
+                "distr_lvl", "distr_cf")
+
+for(i in 1:length(island_list)){
   
-  # DATA
-  d <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
-                                parcel_size/1000,"km_",
-                                catchment_radius/1000,"CR.rds")))
+  controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
+             "n_reachable_uml")
   
-  # subsampling
-  d <- d[d$island %in% island,]
+  island <- island_list[[i]]
   
-  if(outcome_variable == "lucpfip_pixelcount_total" | outcome_variable == "lucpfip_ha_total"){
-    d <- d[d$any_pfc2000_total,]
-  }
-  if(outcome_variable == "lucfip_pixelcount_30th" | outcome_variable == "lucfip_ha_30th" |
-     outcome_variable == "lucfip_pixelcount_60th" | outcome_variable == "lucfip_ha_60th" |
-     outcome_variable == "lucfip_pixelcount_90th" | outcome_variable == "lucfip_ha_90th"){
-    d <- d[d$any_fc2000_30th,]
-  }
+  elmts[[i]] <- list()
+  length(elmts[[i]]) <- length(attributes)
+  names(elmts[[i]]) <- attributes
   
-  ### Specifications
+  ### VARIABLES INVOLVED 
+  
+  # variable of interests (called regressors pour l'instant)
   if(dynamics == FALSE){ 
     # Only the overall effect is investigated then, no short vs. long run
     # In this case, the variables have name element _Xya_ with X the number of years over which the mean has been 
@@ -1890,7 +2747,7 @@ gen_reg_results_in_df <- function(variable,
     }
   }
   
-  # if, on the other hand, we want to disentangle the short run effects from the long run's. 
+  # if, on the other hand, we want to identify the short run effects, controlling for the long run's. 
   if(dynamics == TRUE){ 
     
     if(length(commo) == 1){
@@ -1937,642 +2794,594 @@ gen_reg_results_in_df <- function(variable,
   # add pya outcome variable 
   if(pya_ov){controls <- c(controls, paste0(outcome_variable,"_",x_pya,"pya"))}
   
-  # list model formulae with different fixed effects
-    fml <- as.formula(paste0(outcome_variable,
-                             " ~ ",
-                             paste0(regressors, collapse = "+"),
-                             " + ",
-                             paste0(paste0(controls,lag_or_not), collapse = "+"),
-                             " | ",
-                             fixed_effects))
+  # lag controls or not
+  if(lag_or_not=="_lag1"){controls <- paste0(controls,lag_or_not)}
   
-  if(distribution != "negbin"){
-    # run feglm regressions with the specified family distribution
+
+  ### DATA FOR REGRESSIONS
+  if(island == "Sumatra"){
+    catchment_radius <- 3e4
+  }else{
+    catchment_radius <- 5e4}
+
+  d <- readRDS(file.path(paste0("temp_data/panel_parcels_ip_final_",
+                                parcel_size/1000,"km_",
+                                catchment_radius/1000,"CR.rds")))
+  
+  ## Keep observations that: 
+  
+  # - are in island or group of islands of interest
+  d <- d[d$island %in% island,]
+  
+  # - were covered with some of the studied forest in 2000
+  if(outcome_variable == "lucpfip_pixelcount_total" | outcome_variable == "lucpfip_ha_total"){
+    d <- d[d$any_pfc2000_total,]
+  }
+  if(outcome_variable == "lucfip_pixelcount_30th" | outcome_variable == "lucfip_ha_30th" |
+     outcome_variable == "lucfip_pixelcount_60th" | outcome_variable == "lucfip_ha_60th" |
+     outcome_variable == "lucfip_pixelcount_90th" | outcome_variable == "lucfip_ha_90th"){
+    d <- d[d$any_fc2000_30th,]
+  }
+  d$district_year <- paste0(d$district,"_",d$year)
+  
+
+  # - are kept by fixest, i.e. that have no NA on any of the variables used (in either stage)
+  used_vars <- c("parcel_id", "year", "district", "island", 
+                 "n_reachable_ibsuml_lag1", "sample_coverage_lag1", 
+                 outcome_variable, regressors, controls)
+  
+  filter_vec <- base::rowSums(!is.na(d[,used_vars]))
+  filter_vec <- filter_vec == length(used_vars)
+  d_nona <- d[filter_vec, used_vars]
+  if(anyNA(d_nona)){stop()}
+  
+  # - sometimes there are a couple obs. that have 0 ibs reachable despite being in the sample 
+  # probably due to some small distance calculation difference between this variable computation and wa_at_parcels.R script. 
+  # just remove them if any, so that there is no bug. 
+  
+  if(weights == TRUE){
+    d_nona <- d_nona[d_nona$sample_coverage_lag1!=0,]
+  }
+  
+  # - and those with not only zero outcome, i.e. that feglm would remove, see ?fixest::obs2remove
+  d_nona$district_year <- paste0(d_nona$district,"_",d_nona$year)
+  
+  d_clean <- d_nona[-obs2remove(fml = as.formula(paste0(outcome_variable, " ~ ", fe)),
+                                      d_nona, 
+                                      family = "poisson"),]
+    
+  # note that obs2remove has to be done at the end, otherwise some units (along fe dimension)
+  # can become "only-zero-outcome" units after other data removal.  
+
+  ### FORMULA
+  # list to be filled with formulae of different fixed-effect models
+  
+  fe_model <- as.formula(paste0(outcome_variable,
+                                " ~ ",
+                                paste0(regressors, collapse = "+"),
+                                " + ",
+                                paste0(controls, collapse = "+"),
+                                " | ",
+                                fe))
+  ### REGRESSIONS
+  
+  # run regression for each fixed-effect model 
+  if(distribution != "negbin"){ # i.e. if it's poisson or quasipoisson or gaussian
     if(weights == TRUE){
-      var_weights <- d$sample_coverage_lag1/100 
-      one_reg_results <- fixest::feglm(fml, 
-                            data = d, 
+      var_weights <- d_clean$sample_coverage_lag1/100 
+      fe_reg <- fixest::feglm(fe_model,
+                            data = d_clean, 
                             family = distribution, 
                             notes = TRUE, 
                             weights = var_weights)
+      
     }else{
-      one_reg_results <- fixest::feglm(fml, 
-                                       data = d, 
-                                       family = distribution, 
-                                       notes = TRUE)
+      fe_reg <- fixest::feglm(fe_model,
+                            data = d_clean, 
+                            family = distribution, 
+                            notes = TRUE)
     }
-  }else{
-    # run negative binomial regression with fixest::fenegbin
-    # (and we cannot add weights)
-    one_reg_results <- fixest::fenegbin(fml, 
-                                       data = d, 
-                                       notes = TRUE)
+  }else{ # no weights allowed in negative binomial
+    fe_reg <- fixest::fenegbin(fe_model,
+                          data = d_clean, 
+                          family = distribution, 
+                          notes = TRUE)
   }
   
-  rm(d)
-  
-  # make the vector of stats needed to display in spec chart.
-  reg_summary <- summary(one_reg_results, se = cluster)
-  
-  # if we want to compute the confidence int. within the function
-  # confint <- confint(object = one_reg_results, 
-  #                    parm = match(variable, commo), 
-  #                    level = 0.95, 
-  #                    se = cluster)
-  # reg_stats <- cbind(reg_summary$coeftable[match(variable, commo),1:2], confint)
 
-  reg_coeff_se <- reg_summary$coeftable[match(variable, commo), 1:2]
+  # store it 
+  elmts[[i]][["est_results"]] <- fe_reg
   
-  ### make indicator variables that will be used to label specifications. 
-  ind_var <- data.frame(# outcome variable
-                        "lucpfip_pixelcount_total" = FALSE, 
-                        "lucfip_pixelcount_30th" = FALSE,
-                        # sample
-                        "CR_30km" = FALSE,
-                        "CR_50km" = FALSE,
-                        "imp1" = FALSE, 
-                        # distribution assumptions
-                        "poisson" = FALSE,
-                        "quasipoisson" = FALSE,
-                        "negbin" = FALSE,
-                        # dependent variable
-                        "pya_3" = FALSE,
-                        "pya_4" = FALSE,
-                        "pya_5" = FALSE,
-                        "lag_or_not" = FALSE,
-                        # fixed effects
-                        "unit_fe" = FALSE,
-                        "tw_fe" = FALSE,
-                        "unit_provyear_fe" = FALSE,
-                        "unit_distryear_fe" = FALSE,
-                        # controls
-                        "two_commo" = FALSE, 
-                        "control_own" = FALSE,
-                        "n_reachable_uml_control" = FALSE, 
-                        "prex_cpo_control" = FALSE, 
-                        "pya_outcome_control" = FALSE,
-                        "pya_outcome_spatial" = FALSE,
-                        # weights
-                        "weights" = FALSE,
-                        # standard errors
-                        "oneway_cluster" = FALSE, 
-                        "twoway_cluster" = FALSE
-  )
+  # save coefficients 
+  coeff_ffb <- fe_reg$coefficients[paste0("wa_ffb_price_imp1_",x_pya+1,"ya",lag_or_not)] 
+  coeff_cpo <- fe_reg$coefficients[paste0("wa_cpo_price_imp1_",x_pya+1,"ya",lag_or_not)]
   
-# change the OV indicator variable to TRUE 
-  ind_var[,outcome_variable] <- TRUE
-
-# sample  
-  # change the CR indicator variable to TRUE for the corresponding CR
-  ind_var[,grepl(paste0("CR_", catchment_radius/1000,"km"), colnames(ind_var))] <- TRUE
+  # save fitted values and linear predictors (which include FEs)
+  d_clean$fitted.values <- fe_reg$fitted.values
+  d_clean$linear.predictors <- fe_reg$linear.predictors
   
-  # set the indicator variable for the data imputation 
-  if(imp == 1){ind_var[,"imp1"] <- TRUE}
-  
-# set the indicator variables for the distribution assumptions
-  ind_var[,distribution] <- TRUE
-
-# dependent variable
-  # set # year average indicator variables (+1 because we look at the total effect)
-  ind_var[,grepl(paste0("pya_", x_pya+1), colnames(ind_var))] <- TRUE
-  # set indicator variable for lagging or not
-  if(lag_or_not == "_lag1"){ind_var[,"lag_or_not"] <- TRUE}
-
-# set indicator variables for fixed effects
-  if(fixed_effects == "parcel_id"){ind_var[,"unit_fe"] <- TRUE}
-  if(fixed_effects == "parcel_id + year"){ind_var[,"tw_fe"] <- TRUE}
-  if(fixed_effects == "parcel_id + province^year"){ind_var[,"unit_provyear_fe"] <- TRUE}
-  if(fixed_effects == "parcel_id + district^year"){ind_var[,"unit_distryear_fe"] <- TRUE}
-
-# set indicator variables for controls included
-  # second commo 
-  if(length(commo) == 2){ind_var[,"two_commo"] <- TRUE}
-  # ownership
-  if(any(grepl("pct_own", controls))){ind_var[,"control_own"] <- TRUE}
-  # n_reachable_uml
-  if(any(grepl("n_reachable_uml", controls))){ind_var[,"n_reachable_uml_control"] <- TRUE}
-  # prex_cpo
-  if(any(grepl("prex_cpo", controls))){ind_var[,"prex_cpo_control"] <- TRUE}
-  # pya outcome
-  if(pya_ov){ind_var[,"pya_outcome_control"] <- TRUE}
-  # pya outcome spatial
-  
-# weights indicator variable
-  if(weights){ind_var[,"weights"] <- TRUE}
-  if(distribution == "negbin"){ind_var[,"weights"] <- FALSE} # turn it back to FALSE if negbin distribution
-  
-# clustering
-  if(cluster == "cluster"){ind_var[,"oneway_cluster"] <- TRUE}
-  if(cluster == "twoway"){ind_var[,"twoway_cluster"] <- TRUE}
+  ### PASSING ON TO DISTRICTS
+  # dataframe of districts present in estimating sample d_clean ONLY
+  distr_lvl <- data.frame(d_clean$district) %>% unique()
+  colnames(distr_lvl) <- "district"
   
   
-  spec_df <- cbind(reg_coeff_se, ind_var)
-  return(spec_df)
-}
-
-### GIVE HERE THE ISLAND AND COMMODITY FOR WHICH YOU WANT THE SPEC CHART TO BE EDITED
-ISL <- c("Sumatra", "Kalimantan", "Papua")
-ISL <- "Kalimantan"
-VAR <- "cpo"
-
-i <- 1
-reg_stats_indvar_list <- list()
-
-### RUN THESE FIRST LOOPS OF REGRESSIONS
-for(OV in c("lucpfip_pixelcount_total", "lucfip_pixelcount_30th")){
-for(CR in c(3e4, 5e4)){
-for(IMP in c(1, 2)){
-#for(DISTR in c("quasipoisson", "negbin")){#
-for(XPYA in c(2, 3, 4)){
-for(LAG in c("_lag1", "")){
-for(FE in c("parcel_id", "parcel_id + district^year")){
-#for(WGH in c(TRUE, FALSE)){
-#for(CLST in c("cluster", "twoway")){
-      reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                 island = ISL,
-                                 outcome_variable = OV,
-                                 catchment_radius = CR,
-                                 dynamics = FALSE,
-                                 commo = c("ffb", "cpo"),
-                                 yoyg = FALSE,
-                                 short_run = "unt level", # does not matter if dynamics == FALSE
-                                 imp = IMP,
-                                 distribution = "quasipoisson",
-                                 fixed_effects = FE,
-                                 x_pya = XPYA,
-                                 lag_or_not = LAG, # bien vérifier ça !
-                                 controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                              "n_reachable_uml"),
-                                 pya_ov = FALSE,
-                                 weights = TRUE,
-                                 cluster = "cluster"
-                                 )
-    i <- i+1
-}
-}
-}
-}
-}
-}
-#}
-#}
-#}
-
-### THEN ADD RESULTS OF DEPARTURES FROM THE PREFERED SPECIFICATION
-
-## For a different catchment radii
-# (we do not do 10km because it yields too different results that make the chart hard to read)
-# 
-# for(FE in c("parcel_id", "parcel_id + district^year")){
-# reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-#                                                     island = ISL,
-#                                                     outcome_variable = "lucpfip_pixelcount_total",
-#                                                     catchment_radius = 5e4,
-#                                                     dynamics = FALSE,
-#                                                     commo = c("ffb", "cpo"),
-#                                                     yoyg = FALSE,
-#                                                     short_run = "unt level", # does not matter if dynamics == FALSE
-#                                                     imp = 1,
-#                                                     distribution = "quasipoisson",
-#                                                     fixed_effects = FE,
-#                                                     x_pya = 3,
-#                                                     lag_or_not = "_lag1", # bien vérifier ça !
-#                                                     controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-#                                                                  "n_reachable_uml"),
-#                                                     pya_ov = FALSE,
-#                                                     weights = TRUE,
-#                                                     cluster = "cluster"
-# )
-# i <- i+1
-# }
-
-
-# ## For different past year average
-# for(XPYA in c(2, 4)){
-#   for(FE in c("parcel_id", "parcel_id + district^year")){
-#   reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-#                                                       island = ISL,
-#                                                       outcome_variable = "lucpfip_pixelcount_total",
-#                                                       catchment_radius = 3e4,
-#                                                       dynamics = FALSE,
-#                                                       commo = c("ffb", "cpo"),
-#                                                       yoyg = FALSE,
-#                                                       short_run = "unt level", # does not matter if dynamics == FALSE
-#                                                       imp = 1,
-#                                                       distribution = "quasipoisson",
-#                                                       fixed_effects = FE,
-#                                                       x_pya = XPYA,
-#                                                       lag_or_not = "_lag1", # bien vérifier ça !
-#                                                       controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-#                                                                    "n_reachable_uml"),
-#                                                       pya_ov = FALSE,
-#                                                       weights = TRUE,
-#                                                       cluster = "cluster"
-#   )
-#   i <- i+1
-# }
-# }
-
-## For poisson distribution
-for(FE in c("parcel_id", "parcel_id + district^year")){
-  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                      island = ISL,
-                                                      outcome_variable = "lucpfip_pixelcount_total",
-                                                      catchment_radius = 3e4,
-                                                      dynamics = FALSE,
-                                                      commo = c("ffb", "cpo"),
-                                                      yoyg = FALSE,
-                                                      short_run = "unt level", # does not matter if dynamics == FALSE
-                                                      imp = 1,
-                                                      distribution = "poisson",
-                                                      fixed_effects = FE,
-                                                      x_pya = 3,
-                                                      lag_or_not = "_lag1", # bien vérifier ça !
-                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                   "n_reachable_uml"),
-                                                      pya_ov = FALSE,
-                                                      weights = TRUE,
-                                                      cluster = "cluster"
-  )
-  i <- i+1
-}
-
-## For different fixed effects
-for(FE in c("parcel_id + year", "parcel_id + province^year")){
-  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                      island = ISL,
-                                                      outcome_variable = "lucpfip_pixelcount_total",
-                                                      catchment_radius = 3e4,
-                                                      dynamics = FALSE,
-                                                      commo = c("ffb", "cpo"),
-                                                      yoyg = FALSE,
-                                                      short_run = "unt level", # does not matter if dynamics == FALSE
-                                                      imp = 1,
-                                                      distribution = "quasipoisson",
-                                                      fixed_effects = FE,
-                                                      x_pya = 3,
-                                                      lag_or_not = "_lag1", # bien vérifier ça !
-                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                   "n_reachable_uml"),
-                                                      pya_ov = FALSE,
-                                                      weights = TRUE,
-                                                      cluster = "cluster"
-  )
-  i <- i+1
-}
-
-## CONTROLS
-  ## Without the other commodity price signal
-  for(FE in c("parcel_id", "parcel_id + district^year")){
-    reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                        island = ISL,
-                                                        outcome_variable = "lucpfip_pixelcount_total",
-                                                        catchment_radius = 3e4,
-                                                        dynamics = FALSE,
-                                                        commo = VAR,
-                                                        yoyg = FALSE,
-                                                        short_run = "unt level", # does not matter if dynamics == FALSE
-                                                        imp = 1,
-                                                        distribution = "quasipoisson",
-                                                        fixed_effects = FE,
-                                                        x_pya = 3,
-                                                        lag_or_not = "_lag1", # bien vérifier ça !
-                                                        controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                     "n_reachable_uml"),
-                                                        pya_ov = FALSE,
-                                                        weights = TRUE,
-                                                        cluster = "cluster"
-    )
-    i <- i+1
-  }
-
-  ## Without ownership control
-  for(FE in c("parcel_id", "parcel_id + district^year")){
-    reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                        island = ISL,
-                                                        outcome_variable = "lucpfip_pixelcount_total",
-                                                        catchment_radius = 3e4,
-                                                        dynamics = FALSE,
-                                                        commo = c("ffb", "cpo"),
-                                                        yoyg = FALSE,
-                                                        short_run = "unt level", # does not matter if dynamics == FALSE
-                                                        imp = 1,
-                                                        distribution = "quasipoisson",
-                                                        fixed_effects = FE,
-                                                        x_pya = 3,
-                                                        lag_or_not = "_lag1", # bien vérifier ça !
-                                                        controls = c("n_reachable_uml"),
-                                                        pya_ov = FALSE,
-                                                        weights = TRUE,
-                                                        cluster = "cluster"
-    )
-    i <- i+1
-  }
-
-  ## Without n_reachable_uml
-  for(FE in c("parcel_id", "parcel_id + district^year")){
-    reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                        island = ISL,
-                                                        outcome_variable = "lucpfip_pixelcount_total",
-                                                        catchment_radius = 3e4,
-                                                        dynamics = FALSE,
-                                                        commo = c("ffb", "cpo"),
-                                                        yoyg = FALSE,
-                                                        short_run = "unt level", # does not matter if dynamics == FALSE
-                                                        imp = 1,
-                                                        distribution = "quasipoisson",
-                                                        fixed_effects = FE,
-                                                        x_pya = 3,
-                                                        lag_or_not = "_lag1", # bien vérifier ça !
-                                                        controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp"),
-                                                        pya_ov = FALSE,
-                                                        weights = TRUE,
-                                                        cluster = "cluster"
-    )
-    i <- i+1
-  }
-
+  ### AGGREGATION FACTOR
+  # now we need to compute each district's number of obs.  
+  # we do not only want those used in the estimation, as many were not included because of missing regressors
+  # either because away from sample mills, or because at least one regressor was NA.
+  # So we want to count how many grid cells were within the catchment radius of a UML mill each year, 
+  # and sum over years.  
+  d_aggr <- readRDS(file.path(paste0("temp_data/processed_parcels/lucpfip_panel_reachable_geovars_",
+                                     parcel_size/1000,"km_",
+                                     catchment_radius/1000,"km_UML_CR.rds")))
   
-  ## With percentage CPO exported
-  for(FE in c("parcel_id", "parcel_id + district^year")){
-    reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                        island = ISL,
-                                                        outcome_variable = "lucpfip_pixelcount_total",
-                                                        catchment_radius = 3e4,
-                                                        dynamics = FALSE,
-                                                        commo = c("ffb", "cpo"),
-                                                        yoyg = FALSE,
-                                                        short_run = "unt level", # does not matter if dynamics == FALSE
-                                                        imp = 1,
-                                                        distribution = "quasipoisson",
-                                                        fixed_effects = FE,
-                                                        x_pya = 3,
-                                                        lag_or_not = "_lag1", # bien vérifier ça !
-                                                        controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                     "n_reachable_uml",
-                                                                     "wa_prex_cpo_imp1"),
-                                                        pya_ov = FALSE,
-                                                        weights = TRUE,
-                                                        cluster = "cluster"
-    )
-    i <- i+1
-  }
+  ## Keep observations that: 
+  # - are between 2001 and 2015
+  d_aggr <- d_aggr[d_aggr$year<2016,]
+  
+  # - are in island or group of islands of interest
+  d_aggr <- d_aggr[d_aggr$island %in% island,]
+  # here it's 1172820 with the three islands
+  
+  # - are within the catchment radius of an UML mill this year
+  # recall that this catchment radius is 30km if island is Sumatra and 50km if Kalimantan
+  d_aggr <- d_aggr[d_aggr$n_reachable_uml > 0,] #933843
+  # now should not be balanced anymore
+  #length(unique(d_aggr$parcel_id))*length(unique(d_aggr$year))!=nrow(d_aggr)
+  
+  # - were covered with some of the studied forest in 2000
+  # this we do not do as for regular data frame, but all these obs. are removed with 
+  # obs2remove that removes those with only 0 across years. 
+  d_aggr <- d_aggr[-obs2remove(fml = as.formula(paste0(outcome_variable, " ~ ", fe)),
+                               data = d_aggr, 
+                               family = "poisson"),] # 126082
+  
+  # count the number of observations per district
+  # there are obs. from d_aggr that are in districts that are not in d_clean, therefore 
+  # it's important that x = distr_n_parcels_within_umlcr and all.x = TRUE 
+  # so that we also estimate lucfp in these districts.
+  distr_n_parcels_within_umlcr <- ddply(d_aggr, "district", summarise,
+                                        n_parcels_within_umlcr = length(parcel_id))
+  distr_lvl <- merge(distr_n_parcels_within_umlcr, distr_lvl, 
+                     by = "district",
+                     all = TRUE)
 
-## With past year average outcome 
-for(FE in c("parcel_id", "parcel_id + district^year")){
-  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                      island = ISL,
-                                                      outcome_variable = "lucpfip_pixelcount_total",
-                                                      catchment_radius = 3e4,
-                                                      dynamics = FALSE,
-                                                      commo = c("ffb", "cpo"),
-                                                      yoyg = FALSE,
-                                                      short_run = "unt level", # does not matter if dynamics == FALSE
-                                                      imp = 1,
-                                                      distribution = "quasipoisson",
-                                                      fixed_effects = FE,
-                                                      x_pya = 3,
-                                                      lag_or_not = "_lag1", # bien vérifier ça !
-                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                   "n_reachable_uml"),
-                                                      pya_ov = TRUE,
-                                                      weights = TRUE,
-                                                      cluster = "cluster"
-  )
-  i <- i+1
-}
+  # these guys don't have an estimate of district level fitted value. 
+  # give them the island level one. 
+  # we are in an aggregating exercise anyways, and if we assume that our sample was randomly selected
+  # among all these obs., then it makes sense to impute them the sample average. 
+  
+  # so put this n_parcels counting before the fitted values. Compute the average after each ddply above.
+  # and replace NAs with it. 
+  
+  sum(distr_n_parcels_within_umlcr$n_parcels_within_umlcr)
+  sum(distr_lvl$n_parcels_within_umlcr)
+  
+  ### FITTED VALUES 
 
-## Without IBS mills sample coverage weights
-for(CR in c(3e4, 5e4)){
-for(FE in c("parcel_id", "parcel_id + district^year")){
-reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                    island = ISL,
-                                                    outcome_variable = "lucpfip_pixelcount_total",
-                                                    catchment_radius = CR,
-                                                    dynamics = FALSE,
-                                                    commo = c("ffb", "cpo"),
-                                                    yoyg = FALSE,
-                                                    short_run = "unt level", # does not matter if dynamics == FALSE
-                                                    imp = 1,
-                                                    distribution = "quasipoisson",
-                                                    fixed_effects = FE,
-                                                    x_pya = 3,
-                                                    lag_or_not = "_lag1", # bien vérifier ça !
-                                                    controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                 "n_reachable_uml"),
-                                                    pya_ov = FALSE,
-                                                    weights = FALSE,
-                                                    cluster = "cluster"
-)
-i <- i+1
-}
-}
-
-  ## With two way clustering
-  reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                      island = ISL,
-                                                      outcome_variable = "lucpfip_pixelcount_total",
-                                                      catchment_radius = 3e4,
-                                                      dynamics = FALSE,
-                                                      commo = c("ffb", "cpo"),
-                                                      yoyg = FALSE,
-                                                      short_run = "unt level", # does not matter if dynamics == FALSE
-                                                      imp = 1,
-                                                      distribution = "quasipoisson",
-                                                      fixed_effects = "parcel_id + district^year",
-                                                      x_pya = 3,
-                                                      lag_or_not = "_lag1", # bien vérifier ça !
-                                                      controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                   "n_reachable_uml"),
-                                                      pya_ov = FALSE,
-                                                      weights = TRUE,
-                                                      cluster = "twoway"
-  )
-  i <- i+1
-
-  ## Run some specifications with negbin 
-  # save it before negbin regressions which tend to make the R session crash.
-  # if(length(ISL) ==1){
-  # saveRDS(reg_stats_indvar_list, file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_",ISL,"_",VAR)))
-  # reg_stats_indvar_list <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_",ISL,"_",VAR)))
-  # }else{
-  #   saveRDS(reg_stats_indvar_list, file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_all_",VAR)))
-  #   reg_stats_indvar_list <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_wo_negbin_all_",VAR)))
+  ## FITTED VALUE AT THE AVERAGE 
+  fv_at_distr_avg <- ddply(d_clean, "district", summarise, 
+                        fv_at_distr_avg = mean(linear.predictors))
+  fv_at_distr_avg$fv_at_distr_avg <- exp(fv_at_distr_avg$fv_at_distr_avg)
+  
+  distr_lvl <- merge(distr_lvl, fv_at_distr_avg, by = "district", all = TRUE)
+  
+  # replace NAs with island average
+  distr_lvl$fv_at_distr_avg <- replace(x = distr_lvl$fv_at_distr_avg, 
+                                       list = is.na(distr_lvl$fv_at_distr_avg), 
+                                       values = mean(fv_at_distr_avg$fv_at_distr_avg))
+  
+  distr_lvl$fv_at_distr_avg_ha <- distr_lvl$fv_at_distr_avg*(27.8*27.6)/(1e4)
+  
+  # One could also do it this way, equivalent, less dependent on package fixest, but longer. 
+  #  covariates <- c(regressors, controls)
+  # covariate_distr_avg <- distr_lvl
+  # 
+  # for(i in 1:length(covariates)){
+  #   covariate_distr_avg_i <- ddply(d_clean, "district", summarise,
+  #                                  !!as.symbol(covariates[i]) := mean(!!as.symbol(covariates[i])))   
+  #   
+  #   covariate_distr_avg <- merge(covariate_distr_avg, covariate_distr_avg_i, by = "district")
   # }
   # 
-  # i <- length(reg_stats_indvar_list)+1
+  # #mean(d_clean[d_clean$district == "Kota Pekan Baru", covariates[6]])
+  # covariate_distr_avg <- as.matrix(dplyr::select(covariate_distr_avg, -district))
+  # 
+  # # check that covariates and coefficients are in the same order 
+  # if(!all.equal(colnames(covariate_distr_avg), names(fe_reg_list[[1]]$coefficients)))
+  #   {stop()}
+  # 
+  # Xb_at_distr_avg <- covariate_distr_avg %*% fe_reg_list[[1]]$coefficients
+  # distr_lvl <- cbind(distr_lvl, Xb_at_distr_avg)
+  # 
+  # # add FEs
+  # distr_avg_fe <- ddply(d_clean, "district", summarise, 
+  #                      sumFE_davg = mean(sumFE))
+  # distr_lvl <- merge(distr_lvl, distr_avg_fe, by = "district")
+  # 
+  # # take the exp of the sum of linear predictors and FE, and convert from pixels to hectares. 
+  # distr_lvl$fv_atavg <- exp(distr_lvl$Xb_at_distr_avg + distr_lvl$sumFE_davg)
+  # distr_lvl$fv_atavg_ha <- distr_lvl$fv_atavg*(27.8*27.6)/(1e4)
+  
+  ## FITTED VALUE AT THE MEDIAN 
+  fv_at_distr_med <- ddply(d_clean, "district", summarise, 
+                        fv_at_distr_med = median(linear.predictors))
+  fv_at_distr_med$fv_at_distr_med <- exp(fv_at_distr_med$fv_at_distr_med)
+  
+  distr_lvl <- merge(distr_lvl, fv_at_distr_med, by = "district", all = TRUE)
+  
+  # replace NAs with island median
+  distr_lvl$fv_at_distr_med <- replace(x = distr_lvl$fv_at_distr_med, 
+                                       list = is.na(distr_lvl$fv_at_distr_med), 
+                                       values = median(fv_at_distr_med$fv_at_distr_med))
+  distr_lvl$fv_at_distr_med_ha <- distr_lvl$fv_at_distr_med*(27.8*27.6)/(1e4)
+  
+  
+  ## AVERAGE FITTED VALUE 
+  distr_avg_fv <- ddply(d_clean, "district", summarise, 
+                        distr_avg_fv = mean(fitted.values))
+  
+  distr_lvl <- merge(distr_lvl, distr_avg_fv, by = "district", all = TRUE)
+  
+  # replace NAs with island average
+  distr_lvl$distr_avg_fv <- replace(x = distr_lvl$distr_avg_fv, 
+                                       list = is.na(distr_lvl$distr_avg_fv), 
+                                       values = mean(distr_avg_fv$distr_avg_fv))
+  distr_lvl$distr_avg_fv_ha <- distr_lvl$distr_avg_fv*(27.8*27.6)/(1e4)
+  
+  ## MEDIAN FITTED VALUE 
+  distr_med_fv <- ddply(d_clean, "district", summarise, 
+                        distr_med_fv = median(fitted.values))
+  
+  distr_lvl <- merge(distr_lvl, distr_med_fv, by = "district", all = TRUE)
+  
+  # replace NAs with island average
+  distr_lvl$distr_med_fv <- replace(x = distr_lvl$distr_med_fv, 
+                                    list = is.na(distr_lvl$distr_med_fv), 
+                                    values = median(distr_med_fv$distr_med_fv))
+  distr_lvl$distr_med_fv_ha <- distr_lvl$distr_med_fv*(27.8*27.6)/(1e4)
+  
+  
+  ## AVERAGE TRUE LUCPFIP 
+  distr_avg_y <- ddply(d_clean, "district", summarise, 
+                        lucpfip_pixelcount_total_davg = mean(lucpfip_pixelcount_total))
+  
+  distr_lvl <- merge(distr_lvl, distr_avg_y, by = "district", all = TRUE)
+  # replace NAs with island average
+  distr_lvl$lucpfip_pixelcount_total_davg <- replace(x = distr_lvl$lucpfip_pixelcount_total_davg, 
+                                                     list = is.na(distr_lvl$lucpfip_pixelcount_total_davg), 
+                                                     values = mean(distr_avg_y$lucpfip_pixelcount_total_davg))
+  distr_lvl[,"lucpfip_total_davg_ha"] <- distr_lvl[,"lucpfip_pixelcount_total_davg"]*(27.8*27.6)/(1e4)
+  
+  ## MEDIAN TRUE OUTCOME
+  # much lower, given the skewed distribution of outcome. 
+  distr_med_y <- ddply(d_clean, "district", summarise, 
+                       lucpfip_pixelcount_total_dmed = median(lucpfip_pixelcount_total))
+  
+  distr_lvl <- merge(distr_lvl, distr_med_y, by = "district", all = TRUE)
+  # replace NAs with island average
+  distr_lvl$lucpfip_pixelcount_total_dmed <- replace(x = distr_lvl$lucpfip_pixelcount_total_dmed, 
+                                                     list = is.na(distr_lvl$lucpfip_pixelcount_total_dmed), 
+                                                     values = median(distr_med_y$lucpfip_pixelcount_total_dmed))
+  
+  distr_lvl[,"lucpfip_total_dmed_ha"] <- distr_lvl[,"lucpfip_pixelcount_total_dmed"]*(27.8*27.6)/(1e4)
+  
+  # the best "fit" seems to be the average fitted value. 
+  
+  # store it 
+  elmts[[i]][["distr_lvl"]] <- distr_lvl
+  
+ 
+  ### COUNTERFACTUALS
+  ## compute counterfactuals at the district level
+  distr_cf <- distr_lvl[,c("district", 
+                           "lucpfip_total_davg_ha", 
+                           "distr_avg_fv_ha", "distr_med_fv_ha",
+                           "n_parcels_within_umlcr")]
+  
+  # totals are counted in KHA, hence the /1e3
+  
+  # without tax
+  distr_cf$total_baseline_avg_kha <- (1/1e3)*distr_cf[,"n_parcels_within_umlcr"]*distr_cf[,"distr_avg_fv_ha"]
 
-for(CR in c(3e4, 5e4)){
-  #for(IMP in c(1, 2)){
-  #for(DISTR in c("quasipoisson", "negbin")){#
-  for(XPYA in c(2, 3, 4)){
-    #for(LAG in c("_lag1", "")){
-    for(FE in c("parcel_id", "parcel_id + district^year")){
-      reg_stats_indvar_list[[i]] <- gen_reg_results_in_df(variable = VAR, # this determines the variable the coefficient of which we are interested in.
-                                                          island = ISL,
-                                                          outcome_variable = "lucpfip_pixelcount_total",
-                                                          catchment_radius = CR,
-                                                          dynamics = FALSE,
-                                                          commo = c("ffb", "cpo"),
-                                                          yoyg = FALSE,
-                                                          short_run = "unt level", # does not matter if dynamics == FALSE
-                                                          imp = 1,
-                                                          distribution = "negbin",
-                                                          fixed_effects = FE,
-                                                          x_pya = XPYA,
-                                                          lag_or_not = "_lag1", # bien vérifier ça !
-                                                          controls = c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp",
-                                                                       "n_reachable_uml"),
-                                                          pya_ov = FALSE,
-                                                          weights = FALSE,
-                                                          cluster = "cluster"
-      )
-      i <- i+1
-    }
+  #sum(distr_cf$total_baseline_avg_kha) #500 kha, in 30km in Sumatra, so rather close to what's in table 2. 
+  
+  # with counterfactual market instruments (taxes)
+  # ffb
+  for(tax in c(10, 50, 100)){
+    distr_cf[,paste0("avg_cf_ffb_tax",tax,"_ha")] <- distr_cf$distr_avg_fv_ha*exp(coeff_ffb*(-tax))
+    distr_cf[,paste0("total_cf_ffb_tax",tax,"_kha")] <- (1/1e3)*distr_cf[,"n_parcels_within_umlcr"]*distr_cf[,paste0("avg_cf_ffb_tax",tax,"_ha")]
   }
-}
-  # }
-
-# convert to dataframe to be able to chart
-reg_stats_indvar <- bind_rows(reg_stats_indvar_list)
-
-if(sum(duplicated(reg_stats_indvar))==0 & nrow(reg_stats_indvar)+1 == i){
-  # save it 
-  if(length(ISL) ==1){
-    saveRDS(reg_stats_indvar, file.path(paste0("temp_data/reg_results/spec_chart_df_",ISL,"_",VAR)))
-  }else{
-    saveRDS(reg_stats_indvar, file.path(paste0("temp_data/reg_results/spec_chart_df_all_",VAR)))
+  # cpo
+  for(tax in c(50, 100, 200)){
+    distr_cf[,paste0("avg_cf_cpo_tax",tax,"_ha")] <- distr_cf$distr_avg_fv_ha*exp(coeff_cpo*(-tax))
+    distr_cf[,paste0("total_cf_cpo_tax",tax,"_kha")] <- (1/1e3)*distr_cf[,"n_parcels_within_umlcr"]*distr_cf[,paste0("avg_cf_cpo_tax",tax,"_ha")]
   }
-}else{print("SOMETHING WENT WRONG")}
 
-
-
-# find position of model to highlight in original data frame
-a <- reg_stats_indvar
-model_idx <- a[a$lucpfip_pixelcount_total & 
-                a$CR_30km & 
-                a$imp1 &
-                a$quasipoisson &
-                a$pya_4 &
-                a$lag_or_not &
-                (a$unit_fe | a$unit_distryear_fe) &
-                a$two_commo & 
-                a$control_own & 
-                a$n_reachable_uml_control &
-                a$prex_cpo_control == FALSE &
-                a$pya_outcome_control == FALSE &
-                a$weights &
-                a$oneway_cluster, ] %>% rownames()
-model_idx
-
-schart(reg_stats_indvar, 
-       labels = schart_labels,
-       order="increasing",
-       heights=c(.6,1.5),
-       pch.dot=c(20,20,20,20),
-       ci=c(.95),
-       cex=c(0.6,0.7),
-       highlight=model_idx, 
-       #col.est=c(rgb(0,0,0,0.1),rgb(0,0.2,0.6, 0.1)),
-       col.est=c("grey70", "red3"),
-       #col.est2=c(rgb(0,0,0,0.08),"lightblue"),
-       #col.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
-       col.dot=c("grey70","grey95","grey95","red3"),
-       #bg.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
-       bg.dot=c("grey60","grey95","grey95","white"),
-       adj=c(1,1), 
-       #offset=c(10.4,10.1),
-       leftmargin = 12,
-       ylab = paste0("Semi-elasticity to ", toupper(VAR), " price signal"),
-       lwd.est = 5.8,
-       lwd.symbol = 1
-       #pch.est=20
-)
-
-
-### REMOVE SOME SPECIFICATIONS IF DESIRED 
-ISL <- c("Sumatra", "Kalimantan", "Papua")
-ISL <- "Kalimantan"
-VAR <- "cpo"
-if(length(ISL)==1){
-  a <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_",ISL,"_",VAR)))
-}else{
-    a <- readRDS(file.path(paste0("temp_data/reg_results/spec_chart_df_all_",VAR)))
+  # compute differences
+  # ffb
+  for(tax in c(10, 50, 100)){
+    distr_cf[,paste0("diff_ffb_tax",tax,"_kha")] <- distr_cf$total_baseline_avg_kha - distr_cf[,paste0("total_cf_ffb_tax",tax,"_kha")]
+  }
+  # cpo
+  for(tax in c(50, 100, 200)){
+    distr_cf[,paste0("diff_cpo_tax",tax,"_kha")] <- distr_cf$total_baseline_avg_kha - distr_cf[,paste0("total_cf_cpo_tax",tax,"_kha")]
+  }
+  
+  # ça fait presque un million d'hectares, c'est pas encore assez par rapport au total accumulé sur la
+  # période et sur les 3 îles... trouver pourquoi 
+  # --> BECAUSE we do not add the estimate for all the districts that are not represented in our 
+  # estimating sample d_clean. 
+  
+  # TEMPORARY SOLUTION: REMOVE DUPLICATES IN DISTRICTS NAMES
+  district_sf_nodup <- district_sf[!duplicated(district_sf$name_),]
+  # add the shapes to these districts
+  distr_cf <- merge(distr_cf, district_sf_nodup[,"name_"], 
+                                    by.x = "district",
+                                    by.y = "name_", 
+                                    all = FALSE) %>% st_as_sf()
+  
+  # store it 
+  elmts[[i]][["distr_cf"]] <- distr_cf
+  
+  rm(d, d_nona, d_clean, d_aggr)
 }
-colnames(a)
-nrow(a)
-# remove regressions with: 
-a <- dplyr::filter(a, !(CR_50km & negbin) & # negbin with 50km CR
-                     !((pya_5 | pya_3) & negbin) & # negbin with other pya lengths than 4
-                     !lucfip_pixelcount_30th & # lucfip outcome measure
-                     lag_or_not & # not lagged regressors
-                     imp1) # weaker imputations in data cleaning (imp2) 
 
-# change indicator variables and labels to lighten the chart
-funt <- function(x){any(x) & !all(x)} # returns TRUE iff there is any TRUE in the columns, but not only  
-reg_stats_indvar_rstr <- cbind(a[,c(1,2)], select_if(a[,-c(1,2)], .predicate=funt))
-colnames(reg_stats_indvar_rstr)
 
-schart_labels_rstr <- list("Sample:" = c("30km catchment radius",
-                                    "50km catchment radius"),
-                      "Distribution assumption:" = c("Poisson",
-                                                     "Quasi-Poisson", 
-                                                     "Negative Binomial"),
-                      "Price signal averaged over:" = c("3 years", 
-                                                        "4 years", 
-                                                        "5 years"), 
-                      "Fixed effects:" = c("Grid cell", 
-                                           "Grid cell and year", 
-                                           "Grid cell and province-year",
-                                           "Grid cell and district-year"),
-                      "Controls:" = c(paste0(toupper(c("ffb", "cpo")[!grepl(VAR, c("ffb", "cpo"))]), " price signal"), 
-                                      "Ownership",
-                                      "# reachable UML mills", 
-                                      "% CPO exported", 
-                                      "PYA outcome"),
-                      "Weights" = "", 
-                      "Standard errors:" = c("Grid cell cluster", 
-                                             "Two-way cluster")
-) 
+# check total areas: 
+# ~514 kha, in 30km in Sumatra, so rather close to what's in table 2. 
+sum(elmts[["Sumatra"]][["distr_cf"]]$total_baseline_avg_kha) 
+# ~908 kha, in 50km in Kalimantan, so rather not what's in table 2. 
+sum(elmts[["Kalimantan"]][["distr_cf"]]$total_baseline_avg_kha) 
+elmts[["Sumatra"]][["est_results"]]
+elmts[["Kalimantan"]][["est_results"]]
 
-# find position of model to highlight in original data frame
-a <- reg_stats_indvar_rstr
-model_idx_rstr <- a[a$CR_30km & 
-                 a$quasipoisson &
-                 a$pya_4 &
-                 (a$unit_fe | a$unit_distryear_fe) &
-                 a$two_commo & 
-                 a$control_own & 
-                 a$n_reachable_uml_control &
-                 a$prex_cpo_control == FALSE &
-                 a$pya_outcome_control == FALSE &
-                 a$weights &
-                 a$oneway_cluster, ] %>% rownames()
-model_idx_rstr
+# number of districts involved
+elmts[["Kalimantan"]][["distr_lvl"]]$district %>% length() # 10 in d_clean but 28 in d_aggr
+elmts[["Sumatra"]][["distr_lvl"]]$district %>% length() # 34 in d_clean but 43 in d_aggr
 
-schart(reg_stats_indvar_rstr, 
-       labels = schart_labels_rstr,
-       order="increasing",
-       heights=c(.6,1.5),
-       pch.dot=c(20,20,20,20),
-       ci=c(.95),
-       cex=c(0.6,0.7),
-       highlight=model_idx_rstr, 
-       #col.est=c(rgb(0,0,0,0.1),rgb(0,0.2,0.6, 0.1)),
-       col.est=c("grey70", "red3"),
-       #col.est2=c(rgb(0,0,0,0.08),"lightblue"),
-       #col.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
-       col.dot=c("grey70","grey95","grey95","red3"),
-       #bg.dot=c(rgb(0,0,0,0.12),"grey95","grey95",rgb(0,0.4,0.6,0.3)),
-       bg.dot=c("grey60","grey95","grey95","white"),
-       adj=c(1,1), 
-       #offset=c(10.4,10.1),
-       leftmargin = 12,
-       ylab = paste0("Semi-elasticity to ", toupper(VAR), " price signal"),
-       lwd.est = 5.8,
-       lwd.symbol = 1
-       #pch.est=20
-)
+
+
+
+#### MAP ####
+
+# bind df to plot
+distr_cf <- rbind(elmts[["Sumatra"]][["distr_cf"]],
+                  elmts[["Kalimantan"]][["distr_cf"]])
+
+# settings for legend 
+summary(distr_cf$total_baseline_avg_kha)
+
+### MAP
+# if we are to plot the doistricts' accumulated lucpfip 
+max_val <- max(distr_cf$total_baseline_avg_kha)+1
+# bins <- seq(from = 40, to = 180, by = 20)
+cb <- colorNumeric("BuPu", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
+                   domain = 0:max_val,
+                   na.color = "red", 
+                   reverse = FALSE)
+distr_cf%>% 
+  leaflet() %>% 
+  addTiles()%>%
+  #addProviderTiles(providers$Esri.WorldImagery, group ="ESRI") %>%
+  #addProviderTiles(providers$Stamen.TonerBackground) %>% 
+  addProviderTiles(providers$CartoDB.DarkMatterNoLabels) %>% 
+  addPolygons(fillColor = ~cb(distr_cf$total_baseline_avg_kha),
+              label = ~total_baseline_avg_kha,
+              #color = "#444444",
+              stroke = FALSE,
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 1) %>% 
+  addLegend(pal = cb,  
+            values = distr_cf$total_baseline_avg_kha, 
+            bins = 3, opacity = 0.5,
+            labFormat = labelFormat(suffix = " kha"),
+            title = "Predicted deforestation <br/> 2001-2015, <br/> tax = 0 (baseline)",
+            position = "bottomright")
+
+
+# do not do a new colorNumeric palette, we want all maps to be plotting along the same
+# color-values 
+distr_cf%>% 
+  leaflet() %>% 
+  addTiles()%>%
+  #addProviderTiles(providers$Esri.WorldImagery, group ="ESRI") %>%
+  #addProviderTiles(providers$Stamen.TonerBackground) %>% 
+  addProviderTiles(providers$CartoDB.DarkMatterNoLabels) %>% 
+  addPolygons(fillColor = ~cb(distr_cf$total_cf_cpo_tax200_kha),
+              label = ~total_cf_cpo_tax100_kha,
+              stroke = FALSE,
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 1) %>% 
+  addLegend(pal = cb,  
+            values = ~total_cf_cpo_tax200_kha, 
+            bins = 4, opacity = 0.5,
+            labFormat = labelFormat(suffix = " kha"),
+            title = "Predicted deforestation <br/> 2001-2015, <br/> tax = $100/ton CPO",
+            position = "bottomright")
+
+
+# do not do a new colorNumeric palette, we want all maps to be plotting along the same
+# color-values 
+distr_cf%>% 
+  leaflet() %>% 
+  addTiles()%>%
+  #addProviderTiles(providers$Esri.WorldImagery, group ="ESRI") %>%
+  #addProviderTiles(providers$Stamen.TonerBackground) %>% 
+  addProviderTiles(providers$CartoDB.DarkMatterNoLabels) %>% 
+  addPolygons(fillColor = ~cb(total_cf_ffb_tax50_kha),
+              label = ~district,
+              stroke = FALSE,
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 1) %>% 
+  addLegend(pal = cb,  
+            values = ~total_cf_ffb_tax50_kha, 
+            bins = 3, opacity = 0.5,
+            labFormat = labelFormat(suffix = " kha"),
+            title = "Predicted deforestation <br/> 2001-2015, <br/> tax = $50/ton FFB",
+            position = "bottomright")
+
+### MAP DIFFERENCE BASELINE - COUTERFACTUAL
+# if we are to plot the differences between baseline and tax scenarii
+### MAP
+# if we are to plot the doistricts' accumulated lucpfip 
+summary(distr_cf$diff_cpo_tax200_kha)
+max_val <- max(distr_cf$diff_cpo_tax200_kha)+1
+# bins <- seq(from = 40, to = 180, by = 20)
+cb <- colorNumeric("BrBG", # "viridis" (green-purple), "magma" (yellow-purple), "inferno" (like magma), or "plasma", "BuPu", "Greens"
+                   domain = 0:max_val,
+                   na.color = "red", 
+                   reverse = FALSE)
+distr_cf%>% 
+  leaflet() %>% 
+  addTiles()%>%
+  #addProviderTiles(providers$Esri.WorldImagery, group ="ESRI") %>%
+  #addProviderTiles(providers$Stamen.TonerBackground) %>% 
+  addProviderTiles(providers$CartoDB.DarkMatterNoLabels) %>% 
+  addPolygons(fillColor = ~cb(distr_cf$diff_cpo_tax100_kha),
+              label = ~diff_cpo_tax200_kha,
+              #color = "#444444",
+              stroke = FALSE,
+              weight = 1,
+              smoothFactor = 0.5,
+              opacity = 1.0,
+              fillOpacity = 1) %>% 
+  addLegend(pal = cb,  
+            values = distr_cf$diff_cpo_tax100_kha, 
+            bins = 4, opacity = 0.5,
+            labFormat = labelFormat(suffix = " kha"),
+            title = "Avoided conversion of<br/> 
+            primary forest to oil palm<br/> 
+            plantations 2001-2015",
+            position = "bottomright") %>% 
+  addLegend(title = "Counterfactual tax = $100/ton crude palm oil",
+            position = "topright", 
+            colors = NULL)
+
+
+
+
+distr_cf[distr_cf$district=="Kab. Kotawaringin Timur","total_baseline_avg_kha"]
+
+distr_cf$district %>% unique()
+
+# bind df to plot
+distr_cf <- rbind(elmts[["Sumatra"]][["distr_cf"]],
+                  elmts[["Kalimantan"]][["distr_cf"]])
+plot(distr_cf[,"total_baseline_avg_kha"])
+plot(st_geometry(island_sf_prj), add = T)
+
+
+
+
+# then tmap ? 
+nrow(distr_cf_sf)
+plot(distr_cf_sf[,"cf_ffb_tax10_ha"])
+
+plot(st_geometry(distr_cf_sf))
+
+### Generate demand and invert demand functions ### 
+## FFB DEMAND FUNCTIONS
+ffb_demand_avg <- function(tax, fitted_value_avg, aggr_factor, coeff_ffb){
+  fitted_value_avg*aggr_factor/exp(coeff_ffb*tax)
+}
+ffb_demand_atavg <- function(tax, fitted_value_atavg, aggr_factor, coeff_ffb){
+  fitted_value_atavg*aggr_factor/exp(coeff_ffb*tax)
+}
+ffb_demand_atmed <- function(tax, fitted_value_atmed, aggr_factor, coeff_ffb){
+  fitted_value_atmed*aggr_factor/exp(coeff_ffb*tax)
+}
+
+# with aggr_factor = 1, we have the marginal effect. 
+ffb_demand_avg(tax = 0, 
+               fitted_value_avg = elmts[["Sumatra"]]["fitted_value_avg"],
+               aggr_factor = 1,
+               coeff_ffb = elmts[["Sumatra"]]["coeff_ffb"])
+ffb_demand_atavg(tax = 0, 
+                 fitted_value_atavg = elmts[["Sumatra"]]["fitted_value_atavg"],
+                 aggr_factor = 1,
+                 coeff_ffb = elmts[["Sumatra"]]["coeff_ffb"])
+ffb_demand_atmed(tax = 0, 
+                 fitted_value_atmed = elmts[["Sumatra"]]["fitted_value_atmed"],
+                 aggr_factor = 1,
+                 coeff_ffb = elmts[["Sumatra"]]["coeff_ffb"])
+
+
+ffb_inv_demand_avg <- function(CF, fitted_value_avg, aggr_factor, coeff_ffb){
+  (1/coeff_ffb)*(log(fitted_value_avg*aggr_factor) - log(CF))
+}
+
+ffb_inv_demand_atavg <- function(CF, fitted_value_atavg, aggr_factor, coeff_ffb){
+  (1/coeff_ffb)*(log(fitted_value_atavg*aggr_factor) - log(CF))
+}
+
+ffb_inv_demand_atmed <- function(CF, fitted_value_atmed, aggr_factor, coeff_ffb){
+  (1/coeff_ffb)*(log(fitted_value_atmed*aggr_factor) - log(CF))
+}
+
+
+
+### CPO DEMAND FUNCTIONS 
+cpo_demand_avg <- function(tax, fitted_value_avg, aggr_factor, coeff_cpo){
+  fitted_value_avg*aggr_factor/exp(coeff_cpo*tax)
+}
+cpo_demand_atavg <- function(tax, fitted_value_atavg, aggr_factor, coeff_cpo){
+  fitted_value_atavg*aggr_factor/exp(coeff_cpo*tax)
+}
+cpo_demand_atmed <- function(tax, fitted_value_atmed, aggr_factor, coeff_cpo){
+  fitted_value_atmed*aggr_factor/exp(coeff_cpo*tax)
+}
+
+cpo_demand_avg(tax = 0, 
+               fitted_value_avg = elmts[["Sumatra"]]["fitted_value_avg"],
+               aggr_factor = 1,
+               coeff_cpo = elmts[["Sumatra"]]["coeff_cpo"])
+cpo_demand_atavg(tax = 0, 
+                 fitted_value_atavg = elmts[["Sumatra"]]["fitted_value_atavg"],
+                 aggr_factor = 1,
+                 coeff_cpo = elmts[["Sumatra"]]["coeff_cpo"])
+cpo_demand_atmed(tax = 0, 
+                 fitted_value_atmed = elmts[["Sumatra"]]["fitted_value_atmed"],
+                 aggr_factor = 1,
+                 coeff_cpo = elmts[["Sumatra"]]["coeff_cpo"])
+
+
+
+cpo_inv_demand_avg <- function(CF, fitted_value_avg, aggr_factor, coeff_cpo){
+  (1/coeff_cpo)*(log(fitted_value_avg*aggr_factor) - log(CF))
+}
+
+cpo_inv_demand_atavg <- function(CF, fitted_value_atavg, aggr_factor, coeff_cpo){
+  (1/coeff_cpo)*(log(fitted_value_atavg*aggr_factor) - log(CF))
+}
+
+cpo_inv_demand_atmed <- function(CF, fitted_value_atmed, aggr_factor, coeff_cpo){
+  (1/coeff_cpo)*(log(fitted_value_atmed*aggr_factor) - log(CF))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2587,7 +3396,7 @@ outcome_variable <- "lucfip_pixelcount_30th"
 outcome_variable <- "lucpfip_pixelcount_total"
 x_pya <- 3
 lag_or_not <- "_lag1"
-fixed_effects <- "parcel_id + district^year"
+fixed_effects <- "parcel_id + district_year"
 controls <- c("wa_pct_own_loc_gov_imp", "wa_pct_own_nat_priv_imp", "wa_pct_own_for_imp","n_reachable_uml")
 weights <- TRUE
 
@@ -2641,7 +3450,7 @@ for(i in 1:length(island_list)){
     }
     
     
-    ### compute the aggregation factor
+    ### AGGREGATION FACTOR 
     length(unique(d_aggr$parcel_id))*length(unique(d_aggr$year)) == nrow(d_aggr)
     
     years <- unique(d_aggr$year)
@@ -2652,7 +3461,21 @@ for(i in 1:length(island_list)){
     # we store this number in the first element of the vector of elements of each island 
     elmts[[i]]["aggr_factor"] <- sum(n_parcels_within_cr)
 
-    ### Run the regression ### 
+    
+    # this is the total number of cells within CR and island, not the the number of cells used for estimation. 
+    # this is matter of external validity.
+    # therefore we read in the dataframes of grid cells within particular catchment radii, 
+    # we adjust for the same restrictions (island and positive baseline forest extent) 
+    # and count the number of parcels
+    
+    # n_cells <- length(unique(d$parcel_id))*length(unique(d$year))
+    #names(n_cells) <- "n_cells"
+    # then, multiply by 15, the number of years, if we want to compare with observed accumulated amouts
+    # or if we want to say about the whole period. 
+    # But keep the cross-sectional length (n_cells) if we want to say something like "each year", or "annually". 
+    
+    
+    ### REGRESSION
     
     # there is no dynamics (distinction btw SR and LR effects) here as we aim at 
     # estimating the effect of a tax that remains in time. 
@@ -2687,18 +3510,6 @@ for(i in 1:length(island_list)){
     elmts[[i]]["coeff_cpo"] <- results$coefficients[paste0("wa_cpo_price_imp1_",x_pya+1,"ya",lag_or_not)]
     # names(mult_effect_ffb) <- NULL
     # names(mult_effect_cpo) <- NULL
-    
-    # this is the total number of cells within CR and island, not the the number of cells used for estimation. 
-    # this is matter of external validity.
-    # therefore we read in the dataframes of grid cells within particular catchment radii, 
-    # we adjust for the same restrictions (island and positive baseline forest extent) 
-    # and count the number of parcels
-    
-    # n_cells <- length(unique(d$parcel_id))*length(unique(d$year))
-    #names(n_cells) <- "n_cells"
-    # then, multiply by 15, the number of years, if we want to compare with observed accumulated amouts
-    # or if we want to say about the whole period. 
-    # But keep the cross-sectional length (n_cells) if we want to say something like "each year", or "annually". 
     
     
     ## FITTED VALUE AT THE AVERAGE 
@@ -2967,7 +3778,7 @@ cpo_inv_demand_actual <- function(CF, avg_lucpfip, aggr_factor, coeff_cpo){
 }
 
 
-#### PLOT DEMAND FOR DEFORESTATION #### 
+### PLOT DEMAND FOR DEFORESTATION
 library(ggplot2)
 
 ffb_axis_right_bound <- ffb_demand_atavg(tax = 0, 
@@ -3026,7 +3837,13 @@ cpo_demand_atavg(0) - cpo_demand_atavg(100)
 
  
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+##### TESTING ZONE ##### 
+
 ## test whether the FE are in linear.predictors 
 # linear.predictors, sumFE and fitted.values all have the same length: the number of obs. used in the reg
 length(results$linear.predictors)==length(results$sumFE)
